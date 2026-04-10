@@ -115,8 +115,9 @@ Each environment includes visual and physical factor variations to evaluate robu
 | [Baselines](https://github.com/galilai-group/stable-worldmodel/tree/main/scripts/train) | Type |
 |-------------------|----|
 | DINO-WM           |JEPA|
+| PLDM              |JEPA|
+| LeWM              |JEPA|
 | GCBC              |Behaviour Cloning|
-| HILP              |RL|
 | GCIVL             |RL|
 | GCIQL             |RL|
 
@@ -174,13 +175,20 @@ source .venv/bin/activate
 uv sync --all-extras --group dev
 ```
 
-> **Note:** All datasets and models will be saved in the `$STABLEWM_HOME` environment variable. By default this is `~/.stable-wm/`. Adapt this directory according to your storage needs.
+> **Note:** All datasets and models will be saved in the `$STABLEWM_HOME` environment variable. By default this is `~/.stable_worldmodel/`. Adapt this directory according to your storage needs.
 
 
 ### Questions
 
 If you have a question, please [file an issue](https://github.com/galilai-group/stable-worldmodel/issues).
 
+
+## Works Based on stable-worldmodel
+
+The following research projects have been built on top of stable-worldmodel:
+
+- **[C-JEPA](https://hazel-heejeong-nam.github.io/cjepa/)**
+- **[LeWM](https://le-wm.github.io/)**
 
 ## Citation
 
