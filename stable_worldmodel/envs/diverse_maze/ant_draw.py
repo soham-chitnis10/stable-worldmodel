@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.utils.data
-import gym
-import gym.spaces
+# import gym
+# import gym.spaces
 
 from contextlib import (
     contextmanager,
@@ -21,7 +21,7 @@ import random
 from gymnasium.envs.registration import register as gymnasium_register
 import gymnasium
 
-from gym.envs.registration import register as gym_register
+# from gym.envs.registration import register as gym_register
 
 
 @contextmanager
@@ -36,47 +36,24 @@ def suppress_output():
 
 
 def create_custom_maze2d_env(name, maze_map, max_episode_steps: int):
-    from d4rl.pointmaze import MazeEnv
+    from gymnasium_robotics.envs.maze import PointMazeEnv
 
-    class CustomMazeEnv(MazeEnv):
+    class CustomMazeEnv(PointMazeEnv):
         def __init__(self, **kwargs):
-            # Call the __init__ method of MazeEnv with the custom maze layout
-            super(CustomMazeEnv, self).__init__(maze_spec=maze_map, **kwargs)
+            super(CustomMazeEnv, self).__init__(maze_map=maze_map, **kwargs)
 
         def step(self, action):
-            # Call the original step method to get next state, reward, etc.
-            next_state, original_reward, done, info = super().step(action)
+            next_state_dict, original_reward, terminated, truncated, info = super().step(action)
+            reward = 1 if self._is_goal_reached(achieved_goal=next_state_dict["achieved_goal"],desired_goal=next_state_dict["desired_goal"]) else 0
+            info['success'] = reward > 0
+            return next_state_dict, reward, terminated, truncated, info
 
-            # Define a binary reward based on some condition
-            # Example: reward is 1 if the agent reaches the goal, otherwise 0
-            if self._is_goal_reached():  # You can define your own condition here
-                reward = 1
-            else:
-                reward = 0
-
-            return next_state, reward, done, info
-
-        def _is_goal_reached(self, goal_dist_threshold=0.5):
-            # Check if the agent has reached the goal
-            # You can define how you determine if the goal is reached, e.g.,
-            # by comparing the agent's current position with the goal position
-            current_position = self._get_obs()[:2]  # Custom method to get position
-            goal_position = self.get_target()  # Custom method to get goal
-            distance_to_goal = np.linalg.norm(current_position - goal_position)
-
-            # Example condition: reward is 1 if agent is within a certain distance of the goal
-            return distance_to_goal < goal_dist_threshold  # Adjust threshold as needed
-
-    gym_register(
-        id=name,
-        entry_point=lambda: CustomMazeEnv(),  # Change this to match your file name
-        max_episode_steps=max_episode_steps,
-    )
+        def _is_goal_reached(self, achieved_goal, desired_goal, goal_dist_threshold=0.5):
+            distance_to_goal = np.linalg.norm(achieved_goal - desired_goal)
+            return distance_to_goal < goal_dist_threshold
 
     with suppress_output():
-        wrapped_env: gym.Wrapper = gym.make(name)
-
-    env = cast(gym.Env, wrapped_env.unwrapped)
+        env = CustomMazeEnv()
 
     return env
 
@@ -125,23 +102,22 @@ def load_environment(
     turns: int = None,
     max_episode_steps: int = 600,
     no_legs: bool = True,
-):  # NB: this removes the TimeLimit wrapper
-    # create custom environment if layout is provided
+):
+    maze_map = None
+
     if map_key is not None:
         maze_map = convert_to_binary_array(map_key)
 
         if "ant" in name:
-            maze_map_list = maze_map.tolist()
-
             env = create_custom_antmaze_env(
-                name, maze_map_list, max_episode_steps, no_legs=no_legs
+                name, maze_map.tolist(), max_episode_steps, no_legs=no_legs
             )
         else:
-            env = create_custom_maze2d_env(name, map_key, max_episode_steps)
+            env = create_custom_maze2d_env(name, maze_map.tolist(), max_episode_steps)
     else:
         with suppress_output():
-            wrapped_env: gym.Wrapper = gym.make(name)
-            env = cast(gym.Env, wrapped_env.unwrapped)
+            wrapped_env: gymnasium.Wrapper = gymnasium.make(name)
+            env = cast(gymnasium.Env, wrapped_env.unwrapped)
 
     env.max_episode_steps = max_episode_steps
     env.name = name
@@ -151,10 +127,7 @@ def load_environment(
     env.turns = turns
 
     env.reset()
-
-    env.step(
-        env.action_space.sample()
-    )  # sometimes stepping is needed to initialize internal
+    env.step(env.action_space.sample())
     env.reset()
 
     return env

@@ -1,0 +1,21 @@
+env_name: swm/maze2d_small_diverse
+
+cache_dir: null
+dataset_name: maze2d_small_diverse
+
+world:
+  num_envs: 4
+  max_episode_steps: 600
+  image_shape: [64, 64]
+
+policy: expert        # 'expert' or 'random'
+action_noise: 0.0     # Gaussian noise std added to expert actions
+
+seed: 3072
+num_traj: 1000
+
+# Pass variation options to randomize maps across episodes.
+# Set to null to keep the default (first) map for every episode.
+options:
+  variation:
+    - maze.map_idx
