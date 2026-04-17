@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -11,91 +9,17 @@ import gymnasium as gym
 import numpy as np
 import torch
 from gymnasium import spaces
-from gymnasium.envs.registration import register as gymnasium_register
 
 from stable_worldmodel import spaces as swm_spaces
+
+from stable_worldmodel.envs.diverse_maze.maze_physics import (
+    load_environment,
+    set_point_state,
+)
 
 DEFAULT_VARIATIONS = ('maze.map_idx',)
 
 logger = logging.getLogger(__name__)
-
-
-# ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-
-@contextmanager
-def _suppress_output():
-    with open(os.devnull, "w") as fnull:
-        with redirect_stderr(fnull) as err, redirect_stdout(fnull) as out:
-            yield (err, out)
-
-
-def _convert_to_binary_array(map_key: str) -> np.ndarray:
-    return np.array(
-        [[1 if char == "#" else 0 for char in row] for row in map_key.split("\\")]
-    )
-
-
-def _create_custom_maze2d_env(name: str, maze_map: list, max_episode_steps: int):
-    from gymnasium_robotics.envs.maze import PointMazeEnv
-
-    class CustomMazeEnv(PointMazeEnv):
-        def __init__(self, **kwargs):
-            super().__init__(maze_map=maze_map, **kwargs)
-
-        def step(self, action):
-            next_state_dict, original_reward, terminated, truncated, info = super().step(action)
-            reward = 1 if self._is_goal_reached(
-                achieved_goal=next_state_dict["achieved_goal"],
-                desired_goal=next_state_dict["desired_goal"],
-            ) else 0
-            info['success'] = reward > 0
-            return next_state_dict, reward, terminated, truncated, info
-
-        def _is_goal_reached(self, achieved_goal, desired_goal, goal_dist_threshold=0.5):
-            distance_to_goal = np.linalg.norm(achieved_goal - desired_goal)
-            return distance_to_goal < goal_dist_threshold
-
-    with _suppress_output():
-        env = CustomMazeEnv()
-
-    return env
-
-
-# ------------------------------------------------------------------
-# load_environment  (maze2d only)
-# ------------------------------------------------------------------
-
-def load_environment(
-    name: str,
-    map_key: str | None = None,
-    block_dist: int | None = None,
-    turns: int | None = None,
-    max_episode_steps: int = 600,
-):
-    maze_map = None
-
-    if map_key is not None:
-        maze_map = _convert_to_binary_array(map_key)
-        env = _create_custom_maze2d_env(name, maze_map.tolist(), max_episode_steps)
-    else:
-        with _suppress_output():
-            wrapped_env = gym.make(name)
-            env = wrapped_env.unwrapped
-
-    env.max_episode_steps = max_episode_steps
-    env.name = name
-    env.maze_map = maze_map
-    env.map_key = map_key
-    env.block_dist = block_dist
-    env.turns = turns
-
-    env.reset()
-    env.step(env.action_space.sample())
-    env.reset()
-
-    return env
 
 
 # ------------------------------------------------------------------
@@ -113,17 +37,15 @@ def _default_maps_path(env_name: str) -> Path | None:
     return None
 
 
+def _cache_maps_path(env_name: str) -> Path:
+    from stable_worldmodel.data.utils import get_cache_dir
+
+    return get_cache_dir(sub_folder="diverse_maze") / f"{env_name}_train_maps.pt"
+
+
 @lru_cache(maxsize=8)
 def _load_maps(path: str) -> dict:
     return torch.load(path)
-
-
-def _set_maze2d_state(env, state: np.ndarray) -> None:
-    qpos = np.copy(env.sim.data.qpos)
-    qvel = np.copy(env.sim.data.qvel)
-    qpos[:2] = state[:2]
-    qvel[: len(state[2:])] = state[2:]
-    env.set_state(qpos, qvel)
 
 
 # ------------------------------------------------------------------
@@ -150,6 +72,7 @@ class DiverseMazeEnv(gym.Env):
         turns: int | None = None,
         max_episode_steps: int = 600,
         render_mode: str = "rgb_array",
+        maps_path: str | Path | None = None,
     ) -> None:
         super().__init__()
 
@@ -158,14 +81,15 @@ class DiverseMazeEnv(gym.Env):
         self._max_episode_steps = max_episode_steps
         self._block_dist = block_dist
         self._turns = turns
+        self._maps_path_override = maps_path
 
         # --- map catalogue (diverse envs only) ---
         self._maps: dict = {}
         self._map_index_to_key: list = []
         if "diverse" in env_name:
-            maps_path = _default_maps_path(env_name)
-            if maps_path is not None and maps_path.exists():
-                self._maps = _load_maps(str(maps_path))
+            catalog = self._resolve_maps_catalog_path()
+            if catalog is not None:
+                self._maps = _load_maps(str(catalog))
                 self._map_index_to_key = sorted(
                     self._maps.keys(), key=lambda v: str(v)
                 )
@@ -194,6 +118,18 @@ class DiverseMazeEnv(gym.Env):
     # Construction helpers
     # ------------------------------------------------------------------
 
+    def _resolve_maps_catalog_path(self) -> Path | None:
+        if self._maps_path_override is not None:
+            p = Path(self._maps_path_override).expanduser()
+            return p if p.is_file() else None
+        p = _default_maps_path(self.env_name)
+        if p is not None and p.is_file():
+            return p
+        cached = _cache_maps_path(self.env_name)
+        if cached.is_file():
+            return cached
+        return None
+
     def _map_pos_for(self, map_idx: int | None) -> int:
         if not self._map_index_to_key:
             return 0
@@ -215,6 +151,7 @@ class DiverseMazeEnv(gym.Env):
             block_dist=self._block_dist,
             turns=self._turns,
             max_episode_steps=self._max_episode_steps,
+            render_mode=self.render_mode,
         )
 
     def _build_variation_space(self) -> swm_spaces.Dict:
@@ -361,40 +298,53 @@ class DiverseMazeEnv(gym.Env):
     # ------------------------------------------------------------------
 
     def _get_inner_obs(self) -> np.ndarray:
-        if hasattr(self._env, "_get_obs"):
-            return self._env._get_obs()
-        if hasattr(self._env, "unwrapped") and hasattr(self._env.unwrapped, "_get_obs"):
-            return self._env.unwrapped._get_obs()
-        raise AttributeError("Inner env exposes no _get_obs()")
+        """Flat (4,) state: positions and velocities from the inner point env."""
+        e = self._env
+        if hasattr(e, "point_env") and hasattr(e.point_env, "_get_obs"):
+            obs, _ = e.point_env._get_obs()
+            return np.asarray(obs, dtype=np.float32).ravel()
+        if hasattr(e, "unwrapped") and hasattr(e.unwrapped, "point_env"):
+            obs, _ = e.unwrapped.point_env._get_obs()
+            return np.asarray(obs, dtype=np.float32).ravel()
+        raise AttributeError("Inner env exposes no readable point observation")
 
     def _get_info(self) -> dict:
+        """Stable keys for ``World`` / policies: ``state`` (4,), ``goal_state`` (2,), ``proprio`` (2,)."""
         info: dict[str, Any] = {
             "env_name": self.env_name,
             "map_idx": self._current_map_idx,
         }
-        try:
-            obs = self._get_inner_obs()
-            info["state"] = obs
-            info["proprio"] = obs[:2]
-        except Exception:
-            pass
-        target = self.get_target()
-        if target is not None:
-            info["goal_state"] = np.array(target, dtype=np.float32)
+        state = self._get_inner_obs()
+        info["state"] = np.asarray(state, dtype=np.float32).ravel()
+        info["proprio"] = info["state"][:2].astype(np.float32, copy=False)
+        goal = self.get_target()
+        if goal is None:
+            info["goal_state"] = np.zeros(2, dtype=np.float32)
+        else:
+            info["goal_state"] = np.asarray(goal, dtype=np.float32).reshape(-1)[:2]
         return info
 
     def _set_state(self, state: np.ndarray) -> None:
-        _set_maze2d_state(self._env, state)
+        set_point_state(self._env, state)
 
     def _set_goal_state(self, goal_state: np.ndarray) -> None:
-        if hasattr(self._env, "set_target"):
-            self._env.set_target(goal_state[:2])
+        g = np.asarray(goal_state[:2], dtype=np.float64)
+        if hasattr(self._env, "goal"):
+            self._env.goal = g
+            if hasattr(self._env, "update_target_site_pos"):
+                self._env.update_target_site_pos()
+        elif hasattr(self._env, "set_target"):
+            self._env.set_target(g)
 
     def get_target(self):
-        if hasattr(self._env, "get_target"):
-            return self._env.get_target()
+        e = self._env
+        if hasattr(e, "goal"):
+            return np.asarray(e.goal, dtype=np.float32).reshape(-1)[:2].copy()
+        if hasattr(e, "get_target"):
+            return e.get_target()
         return None
 
 
 def make_diverse_maze_env(env_name: str, **kwargs: Any) -> DiverseMazeEnv:
+    """Factory for :class:`DiverseMazeEnv` (supports ``maps_path`` and other kwargs)."""
     return DiverseMazeEnv(env_name=env_name, **kwargs)

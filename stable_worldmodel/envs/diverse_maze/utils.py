@@ -1,5 +1,5 @@
 import torch
-from stable_worldmodel.envs.diverse_maze.data_generation.maze_stats import RENDER_STATS
+from stable_worldmodel.envs.diverse_maze.maze_stats import RENDER_STATS
 from typing import *
 import numpy as np
 
