@@ -1,20 +1,8 @@
-# Generate data
+# Diverse maze2d (package)
 
-### Generate the data from the paper
+Runtime env, oracle expert policy, and paper-scale top-down renderer for the
+`swm/maze2d_{small,medium,large}_diverse` environments.
 
-Run the following script to download the proprioceptive data, and render the observations into top-down images:
-
-```
-bash data_generation/generate_all_datasets_og.sh
-```
-
-The data will be saved `presaved_datasets/` by default.
-
-### Generate new data
-
-The following scripts will generate datasets for the 40maps, 20maps, 10maps, and 5maps settings. It will also create a set of OOD evaluation trials for the 5maps setting.
-
-```
-bash data_generation/generate_all_datasets_new.sh
-```
-
+See **[`docs/envs/diverse_maze.md`](../../../docs/envs/diverse_maze.md)** for
+registered ids, map catalog resolution, and the Hydra data-collection entry
+point at **`scripts/data/collect_maze.py`**.

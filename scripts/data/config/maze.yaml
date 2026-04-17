@@ -7,6 +7,8 @@ world:
   num_envs: 4
   max_episode_steps: 600
   image_shape: [64, 64]
+  # Optional: path to train_maps.pt (see docs/envs/diverse_maze.md). When null, uses packaged maps or cache.
+  maps_path: null
 
 policy: expert        # 'expert' or 'random'
 action_noise: 0.0     # Gaussian noise std added to expert actions
