@@ -1,0 +1,78 @@
+# ---------------------------------------------------------------------------
+# Probe (OOD evaluation) dataset for diverse maze
+#
+# Generates 20 held-out maps that EXCLUDE the training maps, then collects
+# 50 episodes per map.  Mirrors PLDM probe.yaml.
+#
+# Usage:
+#   python collect_maze.py --config-name maze_probe \
+#       map.exclude_map_path=/path/to/maze2d_large_diverse_25maps_train_maps.pt
+# ---------------------------------------------------------------------------
+
+env_name: swm/maze2d_large_diverse
+
+cache_dir: null
+dataset_name: maze2d_large_diverse_probe
+
+# --- World / env construction ---
+world:
+  num_envs: 1
+  max_episode_steps: 100
+  image_shape: [98, 98]
+  maps_path: null
+
+# --- Policy ---
+policy: uniform
+action_noise: 0.0
+
+# --- Uniform policy params ---
+max_norm: 1.0
+resample_every: 1
+
+# --- OU trajectory params (used when policy=ou_trajectory) ---
+ou_params:
+  ou_theta: 0.15
+  ou_dt: 1.0
+  ou_sigma: 0.2
+  turn_frequency: 20
+  turn_sigma: 0.2
+  turn_noise_level: 0.05
+
+# --- Episode collection ---
+n_episodes: 50            # 50 episodes PER MAP (matches PLDM probe)
+seed: 3072
+
+collect_mode: per_map
+gen_map_only: false
+
+# --- Action repeat ---
+action_repeat: 4
+action_repeat_mode: id
+
+# --- Initial velocity prior ---
+qvel_prior: true
+qvel_prior_type: uniform
+
+# --- Map generation (probe-specific) ---
+map:
+  train_maps_n: 20         # 20 held-out maps (matches PLDM probe)
+  num_blocks_width_in_img: 12
+  sparsity_low: 50
+  sparsity_high: 80
+  max_path_len: 20
+  wall_coords: []
+  space_coords: []
+
+  map_path: null
+
+  # Set to the training maps filename to exclude them.
+  # Resolved relative to cache_dir/datasets/ if no parent path given.
+  exclude_map_path: maze2d_large_diverse_25maps_train_maps.pt
+
+  map_start_idx: null
+  map_end_idx: null
+
+# --- Variation options ---
+options:
+  variation:
+    - maze.map_idx

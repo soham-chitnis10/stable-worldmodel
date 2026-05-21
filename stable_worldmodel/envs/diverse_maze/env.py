@@ -12,12 +12,20 @@ from gymnasium import spaces
 
 from stable_worldmodel import spaces as swm_spaces
 
+from scipy.stats import truncnorm
+
 from stable_worldmodel.envs.diverse_maze.maze_physics import (
     load_environment,
     set_point_state,
 )
 
 DEFAULT_VARIATIONS = ('maze.map_idx',)
+
+# qvel truncated-normal distribution defaults (matches PLDM)
+_QVEL_TRUNCNORM_LOWER = -5.2
+_QVEL_TRUNCNORM_UPPER = 5.2
+_QVEL_TRUNCNORM_MEAN = 0.0
+_QVEL_TRUNCNORM_STD = 1.6
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +81,10 @@ class DiverseMazeEnv(gym.Env):
         max_episode_steps: int = 600,
         render_mode: str = "rgb_array",
         maps_path: str | Path | None = None,
+        action_repeat: int = 1,
+        action_repeat_mode: str = "id",
+        qvel_prior: bool = False,
+        qvel_prior_type: str = "uniform",
     ) -> None:
         super().__init__()
 
@@ -82,6 +94,18 @@ class DiverseMazeEnv(gym.Env):
         self._block_dist = block_dist
         self._turns = turns
         self._maps_path_override = maps_path
+
+        # action repeat (frame-skip in physics)
+        self._action_repeat = int(action_repeat)
+        self._action_repeat_mode = str(action_repeat_mode)
+
+        # initial velocity prior applied at each reset
+        self._qvel_prior = bool(qvel_prior)
+        self._qvel_prior_type = str(qvel_prior_type)
+        if self._qvel_prior and self._qvel_prior_type == "normal":
+            a = (_QVEL_TRUNCNORM_LOWER - _QVEL_TRUNCNORM_MEAN) / _QVEL_TRUNCNORM_STD
+            b = (_QVEL_TRUNCNORM_UPPER - _QVEL_TRUNCNORM_MEAN) / _QVEL_TRUNCNORM_STD
+            self._qvel_dist = truncnorm(a, b, loc=_QVEL_TRUNCNORM_MEAN, scale=_QVEL_TRUNCNORM_STD)
 
         # --- map catalogue (diverse envs only) ---
         self._maps: dict = {}
@@ -246,10 +270,31 @@ class DiverseMazeEnv(gym.Env):
         if isinstance(obs, tuple):
             obs = obs[0]
 
+        # apply initial velocity prior after standard reset
+        if self._qvel_prior:
+            self._apply_qvel_prior()
+
         info = self._get_info()
         return obs, info
 
     def step(self, action: Any):
+        result = self._step_inner(action)
+
+        # action repeat: re-apply action (or variant) for extra physics steps
+        for i in range(1, self._action_repeat):
+            if self._action_repeat_mode == "id":
+                repeat_action = action
+            elif self._action_repeat_mode == "linear":
+                repeat_action = action - i * (action / self._action_repeat)
+            elif self._action_repeat_mode == "null":
+                repeat_action = np.zeros_like(action)
+            else:
+                raise ValueError(f"Unknown action_repeat_mode: {self._action_repeat_mode}")
+            result = self._step_inner(repeat_action)
+
+        return result
+
+    def _step_inner(self, action: Any):
         result = self._env.step(action)
         if isinstance(result, tuple) and len(result) == 5:
             obs, reward, terminated, truncated, _ = result
@@ -323,6 +368,22 @@ class DiverseMazeEnv(gym.Env):
         else:
             info["goal_state"] = np.asarray(goal, dtype=np.float32).reshape(-1)[:2]
         return info
+
+    def _apply_qvel_prior(self) -> None:
+        """Sample initial velocity from a prior distribution and override the
+        current state.  Matches PLDM's ``pick_random_start`` behaviour."""
+        state = self._get_inner_obs()
+        if self._qvel_prior_type == "uniform":
+            mag = np.random.uniform(0, 5)
+            angle = np.random.uniform(0, 2 * np.pi)
+            qvel = np.array([mag * np.cos(angle), mag * np.sin(angle)], dtype=np.float64)
+        elif self._qvel_prior_type == "normal":
+            qvel = self._qvel_dist.rvs(size=2)
+        else:
+            raise ValueError(f"Unknown qvel_prior_type: {self._qvel_prior_type}")
+
+        new_state = np.concatenate([state[:2], qvel])
+        set_point_state(self._env, new_state)
 
     def _set_state(self, state: np.ndarray) -> None:
         set_point_state(self._env, state)
