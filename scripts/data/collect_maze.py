@@ -6,7 +6,7 @@ Supports the full PLDM data-generation pipeline via World.record_dataset():
   - Map index filtering (start/end)
   - Generate-maps-only mode
   - Per-map sequential episode collection (N episodes per map)
-  - All exploration policies: expert, random, uniform, ou_trajectory
+  - Exploration policies: random, uniform, ou_trajectory
   - qvel prior, action repeat, and all PLDM config knobs
 
 Usage examples:
@@ -38,7 +38,6 @@ from pathlib import Path
 import stable_worldmodel as swm
 from stable_worldmodel.data.utils import get_cache_dir
 from stable_worldmodel.envs.diverse_maze import (
-    ExpertPolicy,
     UniformPolicy,
     OUTrajectoryPolicy,
     MapGenerator,
@@ -144,18 +143,11 @@ def _resolve_maps(cfg) -> tuple[dict | None, Path | None]:
 
 def _build_policy(cfg):
     """Instantiate a maze-collection policy from the Hydra config."""
-    policy_name = cfg.get("policy", "expert")
+    policy_name = cfg.get("policy", "uniform")
 
     if policy_name == "random":
         rng_pol = np.random.default_rng(cfg.seed)
         return RandomPolicy(seed=rng_pol.integers(0, 1_000_000).item())
-
-    if policy_name == "uniform":
-        return UniformPolicy(
-            max_norm=cfg.get("max_norm", 1.0),
-            resample_every=cfg.get("resample_every", 1),
-            seed=cfg.seed,
-        )
 
     if policy_name == "ou_trajectory":
         ou = cfg.get("ou_params", {})
@@ -169,9 +161,10 @@ def _build_policy(cfg):
             seed=cfg.seed,
         )
 
-    # default: expert
-    return ExpertPolicy(
-        action_noise=cfg.get("action_noise", 0.0),
+    # default: uniform
+    return UniformPolicy(
+        max_norm=cfg.get("max_norm", 1.0),
+        resample_every=cfg.get("resample_every", 1),
         seed=cfg.seed,
     )
 

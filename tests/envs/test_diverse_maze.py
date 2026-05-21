@@ -21,7 +21,9 @@ def test_import_diverse_maze_package():
     import stable_worldmodel.envs.diverse_maze as dm
 
     assert hasattr(dm, "DiverseMazeEnv")
-    assert hasattr(dm, "ExpertPolicy")
+    assert hasattr(dm, "UniformPolicy")
+    assert hasattr(dm, "OUTrajectoryPolicy")
+    assert not hasattr(dm, "ExpertPolicy")
 
 
 def test_import_maze_draw_no_d4rl_dependency():
@@ -212,115 +214,6 @@ def test_diverse_maze_step_info_consistent(large_diverse_env):
     assert np.asarray(info["goal_state"]).shape == (2,)
 
 
-def test_expert_policy_returns_valid_action_single_env(large_diverse_env):
-    from stable_worldmodel.envs.diverse_maze import ExpertPolicy
-
-    pol = ExpertPolicy(seed=0)
-    pol.set_env(large_diverse_env)
-    _obs, info = large_diverse_env.reset(seed=0)
-    a = pol.get_action(info)
-    assert a.shape == (2,)
-    assert np.all(a >= -1.0) and np.all(a <= 1.0)
-
-
-@pytest.fixture
-def wall_detour_catalog(tmp_path):
-    """4 x 6 layout forcing a one-cell southward detour to reach the goal.
-
-    Row 1: agent at col 1, walls at cols 2 & 3, goal at col 4.
-    Row 2: open corridor below.
-    """
-    import torch
-
-    m0 = "######\\#r##g#\\#OOOO#\\######"
-    p = tmp_path / "train_maps.pt"
-    torch.save({0: m0}, p)
-    return p
-
-
-def test_expert_policy_wall_aware_first_action(wall_detour_catalog):
-    """On a map with a wall between agent and goal, oracle routes around it.
-
-    With the wall, the BFS subgoal is the cell directly south of the agent,
-    so the first action must push south (negative y). A non-oracle PD would
-    instead push east (toward the straight-line goal).
-    """
-    from stable_worldmodel.envs.diverse_maze import ExpertPolicy
-    from stable_worldmodel.envs.diverse_maze.env import make_diverse_maze_env
-
-    env = make_diverse_maze_env(
-        "maze2d_large_diverse",
-        maps_path=str(wall_detour_catalog),
-        render_mode="rgb_array",
-    )
-    try:
-        pol = ExpertPolicy(seed=0, action_noise=0.0)
-        pol.set_env(env)
-        _obs, info = env.reset(seed=0)
-        pos = np.asarray(info["state"])[:2]
-        goal = np.asarray(info["goal_state"])
-        # Sanity: start at row 1 col 1, goal at row 1 col 4 of the 4x6 layout.
-        maze = env._env.maze
-        sr, sc = (int(v) for v in maze.cell_xy_to_rowcol(pos.astype(np.float64)))
-        gr, gc = (int(v) for v in maze.cell_xy_to_rowcol(goal.astype(np.float64)))
-        assert (sr, sc) == (1, 1)
-        assert (gr, gc) == (1, 4)
-
-        a = pol.get_action(info)
-        assert a.shape == (2,)
-        # Oracle must route through the open row beneath the wall: y must be
-        # pushed strongly negative, not east toward the straight-line goal.
-        assert a[1] < -0.1, f"expected southward action, got {a}"
-        assert abs(a[1]) >= abs(a[0]), (
-            f"oracle should dominate on y-axis, got {a}"
-        )
-    finally:
-        env.close()
-
-
-@pytest.fixture
-def open_room_catalog(tmp_path):
-    """6 x 6 fully open room (walls only on the border)."""
-    import torch
-
-    row_mid = "#" + "O" * 4 + "#"
-    m0 = "\\".join(["######", row_mid, row_mid, row_mid, row_mid, "######"])
-    p = tmp_path / "train_maps.pt"
-    torch.save({0: m0}, p)
-    return p
-
-
-def test_expert_policy_reaches_goal_in_open_room(open_room_catalog):
-    """In a wall-free room, repeated expert actions converge on the goal."""
-    from stable_worldmodel.envs.diverse_maze import ExpertPolicy
-    from stable_worldmodel.envs.diverse_maze.env import make_diverse_maze_env
-
-    env = make_diverse_maze_env(
-        "maze2d_large_diverse",
-        maps_path=str(open_room_catalog),
-        render_mode="rgb_array",
-        max_episode_steps=400,
-    )
-    try:
-        pol = ExpertPolicy(seed=0, action_noise=0.0)
-        pol.set_env(env)
-        _obs, info = env.reset(seed=0)
-        goal = np.asarray(info["goal_state"])
-        reached = False
-        for _ in range(400):
-            a = pol.get_action(info)
-            _obs, _r, term, trunc, info = env.step(a)
-            pos = np.asarray(info["state"])[:2]
-            if np.linalg.norm(pos - goal) < 0.5:
-                reached = True
-                break
-            if term or trunc:
-                break
-        assert reached, "expert did not converge to goal in open room"
-    finally:
-        env.close()
-
-
 @pytest.mark.parametrize(
     "env_id,base_name",
     [
@@ -367,22 +260,3 @@ def test_collect_maze_script_smoke(tmp_path, two_map_catalog):
     subprocess.run(cmd, cwd=str(root), check=True, env=env)
 
 
-def test_expert_policy_vectorized_shapes():
-    from stable_worldmodel import World
-    from stable_worldmodel.envs.diverse_maze import ExpertPolicy
-
-    w = World(
-        env_name="swm/maze2d_large_diverse",
-        num_envs=2,
-        image_shape=(64, 64),
-        max_episode_steps=10,
-        goal_conditioned=True,
-        verbose=0,
-    )
-    pol = ExpertPolicy(seed=0)
-    w.set_policy(pol)
-    w.reset(seed=0)
-    assert "state" in w.infos
-    assert w.infos["state"].shape[0] == 2
-    w.step()
-    assert w.rewards.shape == (2,)

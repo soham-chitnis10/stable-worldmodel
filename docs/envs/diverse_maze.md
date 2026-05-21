@@ -9,8 +9,7 @@ sidebar_title: Diverse maze2d
 These environments wrap **gymnasium-robotics** point mazes with multiple wall
 layouts (`maze.map_idx` variation). They follow the same patterns as other SWM
 envs: **`World.record_dataset`**, reset/step **`info`** with **`state`**,
-**`goal_state`**, **`proprio`**, **`map_idx`**, **`env_name`**, and
-**`ExpertPolicy.get_action(info)`**.
+**`goal_state`**, **`proprio`**, **`map_idx`**, and **`env_name`**.
 
 Registered ids:
 
@@ -42,22 +41,16 @@ HJEPA conventions:
   `CenterCrop` + `Resize` pipeline per env root — to emit the paper-scale
   `(H, W, 3)` `uint8` array shown in the table above.
 
-## Expert policy
+## Exploration policies
 
-`ExpertPolicy` is an **oracle-style BFS planner with PD velocity control** (single
-class, `get_action(info_dict)` surface shared with other SWM envs such as
-`two_room`):
+Two exploration policies are available for data collection:
 
-1. Convert agent and goal xy to grid `(row, col)` via
-   `maze.cell_xy_to_rowcol`.
-2. Run BFS on the `map_key` layout to pick the next reachable cell on the
-   shortest path (or the goal itself when in the same cell).
-3. Drive toward that subgoal center with `kp * (subgoal - pos) - kd * vel`,
-   clipped to `[-1, 1]`. Optional Gaussian `action_noise` and
-   `action_repeat_prob`.
+- **`UniformPolicy`** — random 2-D actions with bounded norm, optionally held
+  for `resample_every` consecutive steps.
+- **`OUTrajectoryPolicy`** — Ornstein-Uhlenbeck noise with occasional
+  velocity-aware turn manoeuvres; mirrors the PLDM data-generation pipeline.
 
-When `map_key` is unavailable (non-diverse variant), the policy falls back to
-pure PD toward `goal_state` so non-maze-aware consumers still work.
+Both expose `get_action(info_dict)` and accept a `seed` argument.
 
 ## Map catalog (`train_maps.pt`)
 
