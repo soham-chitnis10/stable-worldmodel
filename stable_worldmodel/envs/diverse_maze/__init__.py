@@ -1,6 +1,7 @@
 from .env import DiverseMazeEnv, make_diverse_maze_env
 from .exploration_policy import UniformPolicy, OUTrajectoryPolicy
 from .map_generator import MapGenerator
+from .normalizer import Normalizer
 
 __all__ = [
     "DiverseMazeEnv",
@@ -8,4 +9,5 @@ __all__ = [
     "UniformPolicy",
     "OUTrajectoryPolicy",
     "MapGenerator",
+    "Normalizer",
 ]
