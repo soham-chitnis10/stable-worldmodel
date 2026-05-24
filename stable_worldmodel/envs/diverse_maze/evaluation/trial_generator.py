@@ -15,12 +15,14 @@ import numpy as np
 import torch
 
 from stable_worldmodel.envs.diverse_maze.maze_stats import RENDER_STATS
-from stable_worldmodel.envs.diverse_maze.utils import sample_nearby_grid_location_v2
+from stable_worldmodel.envs.diverse_maze.utils import (
+    sample_nearby_grid_location_v2,
+)
 
 
 def _stats_key(env_name: str) -> str:
-    if "diverse" in env_name:
-        end = env_name.find("diverse") + len("diverse")
+    if 'diverse' in env_name:
+        end = env_name.find('diverse') + len('diverse')
         return env_name[:end]
     return env_name
 
@@ -34,8 +36,8 @@ def _load_states_by_map(dataset_path: str | Path) -> dict[int, np.ndarray]:
     from stable_worldmodel.data import load_dataset
 
     ds = load_dataset(str(dataset_path))
-    states = ds.get_col_data("state")              # (N, 4)
-    map_ids = ds.get_col_data("map_idx").ravel()   # (N,)
+    states = ds.get_col_data('state')  # (N, 4)
+    map_ids = ds.get_col_data('map_idx').ravel()  # (N,)
 
     by_map: dict[int, np.ndarray] = {}
     for idx in np.unique(map_ids):
@@ -77,8 +79,8 @@ class TrialGenerator:
         unique_shortest_path: bool = False,
     ) -> None:
         stats = RENDER_STATS[_stats_key(env_name)]
-        self.obs_range_total: float = stats["obs_range_total"]
-        self.obs_min_total: float = stats["obs_min_total"]
+        self.obs_range_total: float = stats['obs_range_total']
+        self.obs_min_total: float = stats['obs_min_total']
 
         self.n_trials = n_trials
         self.min_block_radius = min_block_radius
@@ -95,11 +97,11 @@ class TrialGenerator:
         Keys: ``starts``, ``targets``, ``map_layouts``, ``block_dists``, ``turns``.
         """
         trials: dict[str, list] = {
-            "starts": [],
-            "targets": [],
-            "map_layouts": [],
-            "block_dists": [],
-            "turns": [],
+            'starts': [],
+            'targets': [],
+            'map_layouts': [],
+            'block_dists': [],
+            'turns': [],
         }
 
         map_keys = list(self.maps.keys())
@@ -110,7 +112,7 @@ class TrialGenerator:
 
             pool = self.states_by_map.get(int(map_idx))
             if pool is None or len(pool) == 0:
-                raise ValueError(f"No states for map_idx={map_idx} in dataset")
+                raise ValueError(f'No states for map_idx={map_idx} in dataset')
 
             start = pool[self.rng.integers(len(pool))]  # (4,) — x, y, vx, vy
 
@@ -124,10 +126,10 @@ class TrialGenerator:
                 unique_shortest_path=self.unique_shortest_path,
             )
 
-            trials["starts"].append(start.copy())
-            trials["targets"].append(np.asarray(target, dtype=np.float32))
-            trials["map_layouts"].append(map_key)
-            trials["block_dists"].append(int(block_dist))
-            trials["turns"].append(int(turns))
+            trials['starts'].append(start.copy())
+            trials['targets'].append(np.asarray(target, dtype=np.float32))
+            trials['map_layouts'].append(map_key)
+            trials['block_dists'].append(int(block_dist))
+            trials['turns'].append(int(turns))
 
         return trials

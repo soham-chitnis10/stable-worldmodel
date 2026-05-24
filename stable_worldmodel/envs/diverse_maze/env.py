@@ -8,7 +8,6 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 import torch
-from gymnasium import spaces
 
 from stable_worldmodel import spaces as swm_spaces
 
@@ -34,21 +33,24 @@ logger = logging.getLogger(__name__)
 # Map catalogue helpers
 # ------------------------------------------------------------------
 
+
 def _default_maps_path(env_name: str) -> Path | None:
-    base = Path(__file__).resolve().parent / "presaved_datasets"
-    if "small" in env_name:
-        return base / "5maps" / "train_maps.pt"
-    if "large" in env_name:
-        return base / "40maps" / "train_maps.pt"
-    if "medium" in env_name:
-        return base / "20maps" / "train_maps.pt"
+    base = Path(__file__).resolve().parent / 'presaved_datasets'
+    if 'small' in env_name:
+        return base / '5maps' / 'train_maps.pt'
+    if 'large' in env_name:
+        return base / '40maps' / 'train_maps.pt'
+    if 'medium' in env_name:
+        return base / '20maps' / 'train_maps.pt'
     return None
 
 
 def _cache_maps_path(env_name: str) -> Path:
     from stable_worldmodel.data.utils import get_cache_dir
 
-    return get_cache_dir(sub_folder="diverse_maze") / f"{env_name}_train_maps.pt"
+    return (
+        get_cache_dir(sub_folder='diverse_maze') / f'{env_name}_train_maps.pt'
+    )
 
 
 @lru_cache(maxsize=8)
@@ -60,6 +62,7 @@ def _load_maps(path: str) -> dict:
 # DiverseMazeEnv
 # ------------------------------------------------------------------
 
+
 class DiverseMazeEnv(gym.Env):
     """Diverse maze environment adapted for the stable-worldmodel framework.
 
@@ -69,7 +72,7 @@ class DiverseMazeEnv(gym.Env):
     - Convenience ``_set_state`` / ``_set_goal_state`` for planning.
     """
 
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 10}
+    metadata = {'render_modes': ['rgb_array'], 'render_fps': 10}
 
     def __init__(
         self,
@@ -79,12 +82,12 @@ class DiverseMazeEnv(gym.Env):
         block_dist: int | None = None,
         turns: int | None = None,
         max_episode_steps: int = 600,
-        render_mode: str = "rgb_array",
+        render_mode: str = 'rgb_array',
         maps_path: str | Path | None = None,
         action_repeat: int = 1,
-        action_repeat_mode: str = "id",
+        action_repeat_mode: str = 'id',
         qvel_prior: bool = False,
-        qvel_prior_type: str = "uniform",
+        qvel_prior_type: str = 'uniform',
     ) -> None:
         super().__init__()
 
@@ -102,15 +105,21 @@ class DiverseMazeEnv(gym.Env):
         # initial velocity prior applied at each reset
         self._qvel_prior = bool(qvel_prior)
         self._qvel_prior_type = str(qvel_prior_type)
-        if self._qvel_prior and self._qvel_prior_type == "normal":
-            a = (_QVEL_TRUNCNORM_LOWER - _QVEL_TRUNCNORM_MEAN) / _QVEL_TRUNCNORM_STD
-            b = (_QVEL_TRUNCNORM_UPPER - _QVEL_TRUNCNORM_MEAN) / _QVEL_TRUNCNORM_STD
-            self._qvel_dist = truncnorm(a, b, loc=_QVEL_TRUNCNORM_MEAN, scale=_QVEL_TRUNCNORM_STD)
+        if self._qvel_prior and self._qvel_prior_type == 'normal':
+            a = (
+                _QVEL_TRUNCNORM_LOWER - _QVEL_TRUNCNORM_MEAN
+            ) / _QVEL_TRUNCNORM_STD
+            b = (
+                _QVEL_TRUNCNORM_UPPER - _QVEL_TRUNCNORM_MEAN
+            ) / _QVEL_TRUNCNORM_STD
+            self._qvel_dist = truncnorm(
+                a, b, loc=_QVEL_TRUNCNORM_MEAN, scale=_QVEL_TRUNCNORM_STD
+            )
 
         # --- map catalogue (diverse envs only) ---
         self._maps: dict = {}
         self._map_index_to_key: list = []
-        if "diverse" in env_name:
+        if 'diverse' in env_name:
             catalog = self._resolve_maps_catalog_path()
             if catalog is not None:
                 self._maps = _load_maps(str(catalog))
@@ -125,7 +134,9 @@ class DiverseMazeEnv(gym.Env):
             pos = self._map_pos_for(map_idx)
             real_key = self._map_index_to_key[pos]
             self._current_map_key = self._maps[real_key]
-            self._current_map_idx = int(real_key) if str(real_key).isdigit() else pos
+            self._current_map_idx = (
+                int(real_key) if str(real_key).isdigit() else pos
+            )
 
         # --- inner physics env ---
         self._env = self._build_inner_env()
@@ -167,8 +178,11 @@ class DiverseMazeEnv(gym.Env):
 
     def _build_inner_env(self):
         name = self.env_name
-        if self._current_map_key is not None and self._current_map_idx is not None:
-            name = f"{self.env_name}_{self._current_map_idx}"
+        if (
+            self._current_map_key is not None
+            and self._current_map_idx is not None
+        ):
+            name = f'{self.env_name}_{self._current_map_idx}'
         return load_environment(
             name=name,
             map_key=self._current_map_key,
@@ -186,15 +200,17 @@ class DiverseMazeEnv(gym.Env):
 
         return swm_spaces.Dict(
             {
-                "maze": swm_spaces.Dict(
+                'maze': swm_spaces.Dict(
                     {
-                        "map_idx": swm_spaces.Discrete(
-                            n_maps, start=0, init_value=init_idx,
+                        'map_idx': swm_spaces.Discrete(
+                            n_maps,
+                            start=0,
+                            init_value=init_idx,
                         ),
                     }
                 ),
             },
-            sampling_order=["maze"],
+            sampling_order=['maze'],
         )
 
     # ------------------------------------------------------------------
@@ -208,10 +224,12 @@ class DiverseMazeEnv(gym.Env):
                     create_drawer,
                 )
 
-                env_id = getattr(self._env, "name", self.env_name)
+                env_id = getattr(self._env, 'name', self.env_name)
                 self._drawer = create_drawer(self._env, env_id)
             except Exception:
-                logger.debug("Could not create maze_draw drawer", exc_info=True)
+                logger.debug(
+                    'Could not create maze_draw drawer', exc_info=True
+                )
         return self._drawer
 
     def _invalidate_drawer(self):
@@ -230,7 +248,9 @@ class DiverseMazeEnv(gym.Env):
         if new_map_key == self._current_map_key:
             return
         self._current_map_key = new_map_key
-        self._current_map_idx = int(real_key) if str(real_key).isdigit() else variation_pos
+        self._current_map_idx = (
+            int(real_key) if str(real_key).isdigit() else variation_pos
+        )
         self._env = self._build_inner_env()
         self.action_space = self._env.action_space
         self.observation_space = self._env.observation_space
@@ -245,18 +265,23 @@ class DiverseMazeEnv(gym.Env):
         options = options or {}
 
         swm_spaces.reset_variation_space(
-            self.variation_space, seed, options, DEFAULT_VARIATIONS,
+            self.variation_space,
+            seed,
+            options,
+            DEFAULT_VARIATIONS,
         )
 
-        if options.get("map_key") is not None:
-            self._current_map_key = options["map_key"]
-            self._current_map_idx = options.get("map_idx", self._current_map_idx)
+        if options.get('map_key') is not None:
+            self._current_map_key = options['map_key']
+            self._current_map_idx = options.get(
+                'map_idx', self._current_map_idx
+            )
             self._env = self._build_inner_env()
             self.action_space = self._env.action_space
             self.observation_space = self._env.observation_space
             self._invalidate_drawer()
         else:
-            pos = int(self.variation_space["maze"]["map_idx"].value)
+            pos = int(self.variation_space['maze']['map_idx'].value)
             self._swap_to_variation_map(pos)
 
         try:
@@ -282,14 +307,16 @@ class DiverseMazeEnv(gym.Env):
 
         # action repeat: re-apply action (or variant) for extra physics steps
         for i in range(1, self._action_repeat):
-            if self._action_repeat_mode == "id":
+            if self._action_repeat_mode == 'id':
                 repeat_action = action
-            elif self._action_repeat_mode == "linear":
+            elif self._action_repeat_mode == 'linear':
                 repeat_action = action - i * (action / self._action_repeat)
-            elif self._action_repeat_mode == "null":
+            elif self._action_repeat_mode == 'null':
                 repeat_action = np.zeros_like(action)
             else:
-                raise ValueError(f"Unknown action_repeat_mode: {self._action_repeat_mode}")
+                raise ValueError(
+                    f'Unknown action_repeat_mode: {self._action_repeat_mode}'
+                )
             result = self._step_inner(repeat_action)
 
         return result
@@ -301,7 +328,9 @@ class DiverseMazeEnv(gym.Env):
         else:
             obs, reward, done, step_info = result
             truncated = False
-            if isinstance(step_info, dict) and step_info.get("TimeLimit.truncated"):
+            if isinstance(step_info, dict) and step_info.get(
+                'TimeLimit.truncated'
+            ):
                 truncated = True
             terminated = bool(done) and not truncated
 
@@ -320,7 +349,9 @@ class DiverseMazeEnv(gym.Env):
                     img_np = np.transpose(img_np, (1, 2, 0))
                 return img_np
         except Exception:
-            logger.debug("maze_draw render failed, falling back", exc_info=True)
+            logger.debug(
+                'maze_draw render failed, falling back', exc_info=True
+            )
 
         try:
             img = self._env.render()
@@ -334,7 +365,7 @@ class DiverseMazeEnv(gym.Env):
         return img
 
     def close(self):
-        if hasattr(self._env, "close"):
+        if hasattr(self._env, 'close'):
             return self._env.close()
         return None
 
@@ -345,42 +376,48 @@ class DiverseMazeEnv(gym.Env):
     def _get_inner_obs(self) -> np.ndarray:
         """Flat (4,) state: positions and velocities from the inner point env."""
         e = self._env
-        if hasattr(e, "point_env") and hasattr(e.point_env, "_get_obs"):
+        if hasattr(e, 'point_env') and hasattr(e.point_env, '_get_obs'):
             obs, _ = e.point_env._get_obs()
             return np.asarray(obs, dtype=np.float32).ravel()
-        if hasattr(e, "unwrapped") and hasattr(e.unwrapped, "point_env"):
+        if hasattr(e, 'unwrapped') and hasattr(e.unwrapped, 'point_env'):
             obs, _ = e.unwrapped.point_env._get_obs()
             return np.asarray(obs, dtype=np.float32).ravel()
-        raise AttributeError("Inner env exposes no readable point observation")
+        raise AttributeError('Inner env exposes no readable point observation')
 
     def _get_info(self) -> dict:
         """Stable keys for ``World`` / policies: ``state`` (4,), ``goal_state`` (2,), ``proprio`` (2,)."""
         info: dict[str, Any] = {
-            "env_name": self.env_name,
-            "map_idx": self._current_map_idx,
+            'env_name': self.env_name,
+            'map_idx': self._current_map_idx,
         }
         state = self._get_inner_obs()
-        info["state"] = np.asarray(state, dtype=np.float32).ravel()
-        info["proprio"] = info["state"][:2].astype(np.float32, copy=False)
+        info['state'] = np.asarray(state, dtype=np.float32).ravel()
+        info['proprio'] = info['state'][:2].astype(np.float32, copy=False)
         goal = self.get_target()
         if goal is None:
-            info["goal_state"] = np.zeros(2, dtype=np.float32)
+            info['goal_state'] = np.zeros(2, dtype=np.float32)
         else:
-            info["goal_state"] = np.asarray(goal, dtype=np.float32).reshape(-1)[:2]
+            info['goal_state'] = np.asarray(goal, dtype=np.float32).reshape(
+                -1
+            )[:2]
         return info
 
     def _apply_qvel_prior(self) -> None:
         """Sample initial velocity from a prior distribution and override the
         current state.  Matches PLDM's ``pick_random_start`` behaviour."""
         state = self._get_inner_obs()
-        if self._qvel_prior_type == "uniform":
+        if self._qvel_prior_type == 'uniform':
             mag = np.random.uniform(0, 5)
             angle = np.random.uniform(0, 2 * np.pi)
-            qvel = np.array([mag * np.cos(angle), mag * np.sin(angle)], dtype=np.float64)
-        elif self._qvel_prior_type == "normal":
+            qvel = np.array(
+                [mag * np.cos(angle), mag * np.sin(angle)], dtype=np.float64
+            )
+        elif self._qvel_prior_type == 'normal':
             qvel = self._qvel_dist.rvs(size=2)
         else:
-            raise ValueError(f"Unknown qvel_prior_type: {self._qvel_prior_type}")
+            raise ValueError(
+                f'Unknown qvel_prior_type: {self._qvel_prior_type}'
+            )
 
         new_state = np.concatenate([state[:2], qvel])
         set_point_state(self._env, new_state)
@@ -390,18 +427,18 @@ class DiverseMazeEnv(gym.Env):
 
     def _set_goal_state(self, goal_state: np.ndarray) -> None:
         g = np.asarray(goal_state[:2], dtype=np.float64)
-        if hasattr(self._env, "goal"):
+        if hasattr(self._env, 'goal'):
             self._env.goal = g
-            if hasattr(self._env, "update_target_site_pos"):
+            if hasattr(self._env, 'update_target_site_pos'):
                 self._env.update_target_site_pos()
-        elif hasattr(self._env, "set_target"):
+        elif hasattr(self._env, 'set_target'):
             self._env.set_target(g)
 
     def get_target(self):
         e = self._env
-        if hasattr(e, "goal"):
+        if hasattr(e, 'goal'):
             return np.asarray(e.goal, dtype=np.float32).reshape(-1)[:2].copy()
-        if hasattr(e, "get_target"):
+        if hasattr(e, 'get_target'):
             return e.get_target()
         return None
 

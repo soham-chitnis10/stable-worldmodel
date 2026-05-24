@@ -21,10 +21,15 @@ from scipy.stats import truncnorm
 from stable_worldmodel.policy import BasePolicy
 
 
-def _sample_vector(rng: np.random.Generator, max_norm: float = 1.0) -> np.ndarray:
+def _sample_vector(
+    rng: np.random.Generator, max_norm: float = 1.0
+) -> np.ndarray:
     magnitude = rng.uniform(0, max_norm)
     angle = rng.uniform(0, 2 * np.pi)
-    return np.array([magnitude * np.cos(angle), magnitude * np.sin(angle)], dtype=np.float32)
+    return np.array(
+        [magnitude * np.cos(angle), magnitude * np.sin(angle)],
+        dtype=np.float32,
+    )
 
 
 def _bound_vector_norm(vec: np.ndarray, max_norm: float = 1.0) -> np.ndarray:
@@ -37,6 +42,7 @@ def _bound_vector_norm(vec: np.ndarray, max_norm: float = 1.0) -> np.ndarray:
 # ------------------------------------------------------------------
 # Uniform policy
 # ------------------------------------------------------------------
+
 
 class UniformPolicy(BasePolicy):
     """Random 2-D actions with bounded norm, optionally held for several steps.
@@ -64,7 +70,7 @@ class UniformPolicy(BasePolicy):
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
-        self.type = "uniform"
+        self.type = 'uniform'
         self.max_norm = float(max_norm)
         self.resample_every = int(resample_every)
         self.seed = seed
@@ -78,18 +84,20 @@ class UniformPolicy(BasePolicy):
 
     def set_env(self, env: Any) -> None:
         super().set_env(env)
-        n = getattr(env, "num_envs", 1)
+        n = getattr(env, 'num_envs', 1)
         self._step_counters = np.zeros(n, dtype=np.int64)
         self._cached_actions = np.zeros((n, 2), dtype=np.float32)
 
     def get_action(self, info_dict: dict, **kwargs: Any) -> np.ndarray:
-        n = getattr(self.env, "num_envs", 1)
+        n = getattr(self.env, 'num_envs', 1)
         shape = self.env.action_space.shape
         actions = np.zeros(shape, dtype=np.float32)
 
         for i in range(n):
             if self._step_counters[i] % self.resample_every == 0:
-                self._cached_actions[i] = _sample_vector(self.rng, self.max_norm)
+                self._cached_actions[i] = _sample_vector(
+                    self.rng, self.max_norm
+                )
             self._step_counters[i] += 1
             actions[i] = self._cached_actions[i]
 
@@ -99,6 +107,7 @@ class UniformPolicy(BasePolicy):
 # ------------------------------------------------------------------
 # Helpers for OU turn manoeuvres
 # ------------------------------------------------------------------
+
 
 def _sample_tapered_distribution(
     rng: np.random.Generator,
@@ -115,7 +124,7 @@ def _sample_tapered_distribution(
         if d <= a:
             pdf[idx] = 1.0
         elif d <= L:
-            pdf[idx] = np.exp(-((d - a) ** 2) / (2 * sigma ** 2))
+            pdf[idx] = np.exp(-((d - a) ** 2) / (2 * sigma**2))
     total = pdf.sum()
     if total == 0:
         pdf[:] = 1.0 / size
@@ -124,25 +133,42 @@ def _sample_tapered_distribution(
     return rng.choice(samples, size=size, p=pdf)
 
 
-def _sample_angle_tapered(rng: np.random.Generator, initial_angle: float) -> float:
-    angles = _sample_tapered_distribution(rng, a=90, L=180, sigma=30, center=180, size=1000)
+def _sample_angle_tapered(
+    rng: np.random.Generator, initial_angle: float
+) -> float:
+    angles = _sample_tapered_distribution(
+        rng, a=90, L=180, sigma=30, center=180, size=1000
+    )
     angles = np.clip(angles, 0, 360)
     rotation = initial_angle - 180
     rotated = (angles + rotation) % 360
     return float(rng.choice(rotated))
 
 
-def _sample_goal_vector(rng: np.random.Generator, current_vel: np.ndarray) -> np.ndarray:
+def _sample_goal_vector(
+    rng: np.random.Generator, current_vel: np.ndarray
+) -> np.ndarray:
     iv_norm = np.linalg.norm(current_vel)
     std = 3.25
     a_param = (0.0 - iv_norm) / std
     b_param = (5.0 - iv_norm) / std
-    goal_norm = float(np.clip(truncnorm.rvs(a_param, b_param, loc=iv_norm, scale=std, random_state=rng), 0, 5))
+    goal_norm = float(
+        np.clip(
+            truncnorm.rvs(
+                a_param, b_param, loc=iv_norm, scale=std, random_state=rng
+            ),
+            0,
+            5,
+        )
+    )
 
     angle_deg = np.degrees(np.arctan2(current_vel[1], current_vel[0]))
     goal_angle_deg = _sample_angle_tapered(rng, float(angle_deg))
     goal_angle = np.radians(goal_angle_deg)
-    return np.array([goal_norm * np.cos(goal_angle), goal_norm * np.sin(goal_angle)], dtype=np.float32)
+    return np.array(
+        [goal_norm * np.cos(goal_angle), goal_norm * np.sin(goal_angle)],
+        dtype=np.float32,
+    )
 
 
 def _generate_acceleration_sequence(
@@ -176,8 +202,12 @@ def _generate_bi_acceleration_sequence(
     acc_N = rng.integers(max(lower_N, 1), upper_N + 1)
     decc_N = rng.integers(max(lower_N, 1), upper_N + 1)
     single_noise = noise_level / math.sqrt(2)
-    acc_seq = _generate_acceleration_sequence(rng, v_init, np.zeros(2), int(acc_N), sigma, single_noise)
-    decc_seq = _generate_acceleration_sequence(rng, np.zeros(2), v_goal, int(decc_N), sigma, single_noise)
+    acc_seq = _generate_acceleration_sequence(
+        rng, v_init, np.zeros(2), int(acc_N), sigma, single_noise
+    )
+    decc_seq = _generate_acceleration_sequence(
+        rng, np.zeros(2), v_goal, int(decc_N), sigma, single_noise
+    )
     max_len = max(len(acc_seq), len(decc_seq))
     acc_seq = np.pad(acc_seq, ((0, max_len - len(acc_seq)), (0, 0)))
     decc_seq = np.pad(decc_seq, ((0, max_len - len(decc_seq)), (0, 0)))
@@ -187,6 +217,7 @@ def _generate_bi_acceleration_sequence(
 # ------------------------------------------------------------------
 # OU trajectory policy
 # ------------------------------------------------------------------
+
 
 class OUTrajectoryPolicy(BasePolicy):
     """Ornstein-Uhlenbeck exploration with occasional velocity-aware turns.
@@ -221,7 +252,7 @@ class OUTrajectoryPolicy(BasePolicy):
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
-        self.type = "ou_trajectory"
+        self.type = 'ou_trajectory'
         self.ou_theta = ou_theta
         self.ou_dt = ou_dt
         self.ou_sigma = ou_sigma
@@ -240,12 +271,15 @@ class OUTrajectoryPolicy(BasePolicy):
 
     def set_env(self, env: Any) -> None:
         super().set_env(env)
-        n = getattr(env, "num_envs", 1)
-        self._actions = {i: self.rng.uniform(-0.1, 0.1, size=2).astype(np.float32) for i in range(n)}
+        n = getattr(env, 'num_envs', 1)
+        self._actions = {
+            i: self.rng.uniform(-0.1, 0.1, size=2).astype(np.float32)
+            for i in range(n)
+        }
         self._turn_queues = {i: [] for i in range(n)}
 
     def get_action(self, info_dict: dict, **kwargs: Any) -> np.ndarray:
-        n = getattr(self.env, "num_envs", 1)
+        n = getattr(self.env, 'num_envs', 1)
         shape = self.env.action_space.shape
         actions = np.zeros(shape, dtype=np.float32)
 
@@ -262,9 +296,13 @@ class OUTrajectoryPolicy(BasePolicy):
                 upper_N = lower_N + 10
 
                 acc_seq = _generate_bi_acceleration_sequence(
-                    self.rng, vel, v_goal,
-                    lower_N=lower_N, upper_N=upper_N,
-                    sigma=self.turn_sigma, noise_level=self.turn_noise_level,
+                    self.rng,
+                    vel,
+                    v_goal,
+                    lower_N=lower_N,
+                    upper_N=upper_N,
+                    sigma=self.turn_sigma,
+                    noise_level=self.turn_noise_level,
                 )
                 acc_seq = np.array([_bound_vector_norm(a) for a in acc_seq])
                 self._turn_queues[i] = list(acc_seq)
@@ -272,10 +310,11 @@ class OUTrajectoryPolicy(BasePolicy):
                 action = self._turn_queues[i].pop(0)
             else:
                 mu = np.zeros(2)
-                dx = (
-                    self.ou_theta * (mu - self._actions[i]) * self.ou_dt
-                    + self.ou_sigma * np.sqrt(self.ou_dt) * self.rng.standard_normal(2)
-                )
+                dx = self.ou_theta * (
+                    mu - self._actions[i]
+                ) * self.ou_dt + self.ou_sigma * np.sqrt(
+                    self.ou_dt
+                ) * self.rng.standard_normal(2)
                 action = _bound_vector_norm(self._actions[i] + dx)
 
             action = action.astype(np.float32)
@@ -285,11 +324,15 @@ class OUTrajectoryPolicy(BasePolicy):
         return actions
 
     @staticmethod
-    def _get_velocity(info_dict: dict, env_idx: int, n_envs: int) -> np.ndarray:
-        state = info_dict.get("state")
+    def _get_velocity(
+        info_dict: dict, env_idx: int, n_envs: int
+    ) -> np.ndarray:
+        state = info_dict.get('state')
         if state is None:
             return np.zeros(2, dtype=np.float32)
-        st = np.asarray(state[env_idx] if n_envs > 1 else state, dtype=np.float32).squeeze()
+        st = np.asarray(
+            state[env_idx] if n_envs > 1 else state, dtype=np.float32
+        ).squeeze()
         if st.shape[0] >= 4:
             return st[2:4].copy()
         return np.zeros(2, dtype=np.float32)

@@ -74,7 +74,7 @@ class MapGenerator:
                 if (
                     0 <= nr < rows
                     and 0 <= nc < cols
-                    and grid[nr, nc] == "O"
+                    and grid[nr, nc] == 'O'
                     and not visited[nr, nc]
                 ):
                     visited[nr, nc] = True
@@ -87,7 +87,7 @@ class MapGenerator:
         max_distance = 0
         for r in range(rows):
             for c in range(cols):
-                if grid[r, c] == "O":
+                if grid[r, c] == 'O':
                     distance = self._bfs_longest_path(grid, r, c)
                     max_distance = max(max_distance, distance)
         return max_distance
@@ -96,14 +96,20 @@ class MapGenerator:
     # Grid generation (cellular automata)
     # ------------------------------------------------------------------
 
-    def _initialize_grid(self, width, height, border_fill_prob=0.5, interior_fill_prob=0.5):
-        grid = np.full((height, width), "#", dtype=str)
+    def _initialize_grid(
+        self, width, height, border_fill_prob=0.5, interior_fill_prob=0.5
+    ):
+        grid = np.full((height, width), '#', dtype=str)
         for r in range(height):
             for c in range(width):
                 if r == 0 or r == height - 1 or c == 0 or c == width - 1:
-                    grid[r, c] = "O" if random.random() < border_fill_prob else "#"
+                    grid[r, c] = (
+                        'O' if random.random() < border_fill_prob else '#'
+                    )
                 else:
-                    grid[r, c] = "O" if random.random() < interior_fill_prob else "#"
+                    grid[r, c] = (
+                        'O' if random.random() < interior_fill_prob else '#'
+                    )
         return grid
 
     def _is_connected(self, grid):
@@ -122,7 +128,7 @@ class MapGenerator:
                         0 <= nx < width
                         and 0 <= ny < height
                         and not visited[nx, ny]
-                        and grid[nx, ny] == "O"
+                        and grid[nx, ny] == 'O'
                     ):
                         visited[nx, ny] = True
                         queue.append((nx, ny))
@@ -131,9 +137,9 @@ class MapGenerator:
 
         for x in range(width):
             for y in range(height):
-                if grid[x, y] == "O":
+                if grid[x, y] == 'O':
                     connected_count = bfs(x, y)
-                    total_o_count = np.sum(grid == "O")
+                    total_o_count = np.sum(grid == 'O')
                     return connected_count == total_o_count
         return True
 
@@ -141,20 +147,29 @@ class MapGenerator:
         new_grid = np.copy(grid)
         rows, cols = grid.shape
         directions = [
-            (-1, -1), (-1, 0), (-1, 1),
-            (0, -1),           (0, 1),
-            (1, -1),  (1, 0),  (1, 1),
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+            (0, -1),
+            (0, 1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
         ]
         for r in range(rows):
             for c in range(cols):
-                if grid[r, c] == "O":
+                if grid[r, c] == 'O':
                     open_space_count = 0
                     for dr, dc in directions:
                         nr, nc = r + dr, c + dc
-                        if 0 <= nr < rows and 0 <= nc < cols and grid[nr, nc] == "O":
+                        if (
+                            0 <= nr < rows
+                            and 0 <= nc < cols
+                            and grid[nr, nc] == 'O'
+                        ):
                             open_space_count += 1
                     if open_space_count > N:
-                        new_grid[r, c] = "#"
+                        new_grid[r, c] = '#'
         return new_grid
 
     def _apply_cellular_automata(self, grid, N=6):
@@ -168,11 +183,11 @@ class MapGenerator:
 
     def _calculate_o_percentage(self, grid):
         grid = np.array(grid)
-        return (np.sum(grid == "O") / grid.size) * 100
+        return (np.sum(grid == 'O') / grid.size) * 100
 
     def _add_walls(self, grid):
         rows, cols = grid.shape
-        new_array = np.full((rows + 2, cols + 2), "#", dtype=grid.dtype)
+        new_array = np.full((rows + 2, cols + 2), '#', dtype=grid.dtype)
         new_array[1:-1, 1:-1] = grid
         return new_array
 
@@ -182,10 +197,10 @@ class MapGenerator:
 
     def print_grid(self, grid):
         for row in grid:
-            print("".join(row))
+            print(''.join(row))
 
     def print_grid_from_key(self, key):
-        rows = key.split("\\")
+        rows = key.split('\\')
         for row in rows:
             print(row)
         print()
@@ -195,7 +210,7 @@ class MapGenerator:
     # ------------------------------------------------------------------
 
     def _generate_key(self, grid):
-        return "\\".join("".join(row) for row in grid)
+        return '\\'.join(''.join(row) for row in grid)
 
     # ------------------------------------------------------------------
     # Constraint checks
@@ -203,13 +218,13 @@ class MapGenerator:
 
     def _pass_wall_constraint(self, grid):
         for coord in self.wall_coords:
-            if grid[coord[0], coord[1]] == "O":
+            if grid[coord[0], coord[1]] == 'O':
                 return False
         return True
 
     def _pass_space_constraint(self, grid):
         for coord in self.space_coords:
-            if grid[coord[0], coord[1]] == "#":
+            if grid[coord[0], coord[1]] == '#':
                 return False
         return True
 
@@ -226,7 +241,7 @@ class MapGenerator:
         """
         map_dict: dict[str, bool] = {}
 
-        print("Generating map layouts")
+        print('Generating map layouts')
         for _ in tqdm(range(self.num_maps)):
             while True:
                 map_grid = self._generate_map(self.width - 2, self.height - 2)

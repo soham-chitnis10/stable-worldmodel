@@ -12,7 +12,7 @@ import numpy as np
 
 @contextmanager
 def suppress_output():
-    with open(os.devnull, "w") as fnull:
+    with open(os.devnull, 'w') as fnull:
         with redirect_stderr(fnull), redirect_stdout(fnull):
             yield
 
@@ -24,14 +24,14 @@ def convert_to_binary_array(map_key: str) -> list:
     (combined) so gymnasium-robotics enforces spawn / goal locations. Any
     other non-wall character (``O``, ``0``, spaces) becomes ``0`` (empty).
     """
-    rows = map_key.split("\\")
+    rows = map_key.split('\\')
     out: list[list] = []
     for row in rows:
         parsed: list = []
         for char in row:
-            if char == "#":
+            if char == '#':
                 parsed.append(1)
-            elif char in ("r", "g", "c"):
+            elif char in ('r', 'g', 'c'):
                 parsed.append(char)
             else:
                 parsed.append(0)
@@ -42,9 +42,9 @@ def convert_to_binary_array(map_key: str) -> list:
 def _top_down_camera_config(name: str) -> dict:
     """Top-down camera overrides to match HJEPA-style rendering."""
     cfg: dict = {
-        "elevation": -90.0,
-        "azimuth": 90.0,
-        "lookat": np.array([0.0, 0.0, 0.0], dtype=np.float64),
+        'elevation': -90.0,
+        'azimuth': 90.0,
+        'lookat': np.array([0.0, 0.0, 0.0], dtype=np.float64),
     }
     return cfg
 
@@ -56,7 +56,9 @@ def _apply_top_down_camera(env, name: str) -> None:
     ``PointMazeEnv.__init__``. We override it post-init and purge cached
     viewers so the next render rebuilds with the new config.
     """
-    renderer = getattr(getattr(env, "point_env", None), "mujoco_renderer", None)
+    renderer = getattr(
+        getattr(env, 'point_env', None), 'mujoco_renderer', None
+    )
     if renderer is None:
         return
     merged = dict(renderer.default_cam_config or {})
@@ -73,7 +75,7 @@ def create_custom_maze2d_env(
     name: str,
     maze_map: list,
     max_episode_steps: int,
-    render_mode: str | None = "rgb_array",
+    render_mode: str | None = 'rgb_array',
 ):
     from gymnasium_robotics.envs.maze import PointMazeEnv
 
@@ -86,15 +88,23 @@ def create_custom_maze2d_env(
             )
 
         def step(self, action):
-            next_state_dict, _r, terminated, truncated, info = super().step(action)
-            reward = 1 if self._is_goal_reached(
-                achieved_goal=next_state_dict["achieved_goal"],
-                desired_goal=next_state_dict["desired_goal"],
-            ) else 0
-            info["success"] = reward > 0
+            next_state_dict, _r, terminated, truncated, info = super().step(
+                action
+            )
+            reward = (
+                1
+                if self._is_goal_reached(
+                    achieved_goal=next_state_dict['achieved_goal'],
+                    desired_goal=next_state_dict['desired_goal'],
+                )
+                else 0
+            )
+            info['success'] = reward > 0
             return next_state_dict, reward, terminated, truncated, info
 
-        def _is_goal_reached(self, achieved_goal, desired_goal, goal_dist_threshold=0.5):
+        def _is_goal_reached(
+            self, achieved_goal, desired_goal, goal_dist_threshold=0.5
+        ):
             distance_to_goal = np.linalg.norm(achieved_goal - desired_goal)
             return distance_to_goal < goal_dist_threshold
 
@@ -111,13 +121,13 @@ def load_environment(
     block_dist: int | None = None,
     turns: int | None = None,
     max_episode_steps: int = 600,
-    render_mode: str | None = "rgb_array",
+    render_mode: str | None = 'rgb_array',
 ):
     """Build or load a **point** maze env. Ant mazes are not supported in this module."""
-    if map_key is not None and "ant" in name.lower():
+    if map_key is not None and 'ant' in name.lower():
         raise ValueError(
-            "Ant maze loading was removed from maze_physics; use scripts under "
-            "scripts/diverse_maze/ if you still need legacy ant data generation."
+            'Ant maze loading was removed from maze_physics; use scripts under '
+            'scripts/diverse_maze/ if you still need legacy ant data generation.'
         )
 
     maze_map = None
@@ -151,18 +161,20 @@ def set_point_state(env, state: np.ndarray) -> None:
     """Set point-mass (x, y, vx, vy) on the inner MuJoCo env (same as DiverseMazeEnv._set_state)."""
     inner = env
     while True:
-        if getattr(inner, "point_env", None) is not None:
+        if getattr(inner, 'point_env', None) is not None:
             inner = inner.point_env
             break
-        if hasattr(inner, "data") and hasattr(inner.data, "qpos"):
+        if hasattr(inner, 'data') and hasattr(inner.data, 'qpos'):
             break
-        if hasattr(inner, "unwrapped") and inner.unwrapped is not inner:
+        if hasattr(inner, 'unwrapped') and inner.unwrapped is not inner:
             inner = inner.unwrapped
             continue
-        if hasattr(inner, "env"):
+        if hasattr(inner, 'env'):
             inner = inner.env
             continue
-        raise TypeError(f"Could not resolve point-maze inner env from {type(env)!r}")
+        raise TypeError(
+            f'Could not resolve point-maze inner env from {type(env)!r}'
+        )
     qpos = np.copy(inner.data.qpos)
     qvel = np.copy(inner.data.qvel)
     qpos[:2] = state[:2]

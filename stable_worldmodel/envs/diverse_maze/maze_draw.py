@@ -33,10 +33,14 @@ class GymnasiumPointMazeDrawer:
     def __init__(self, env: Any, env_id: str):
         self.env = env
         self.env_id = env_id
-        self.point_env = getattr(env, "point_env", None)
+        self.point_env = getattr(env, 'point_env', None)
         if self.point_env is None:
-            raise TypeError("Expected PointMazeEnv with .point_env for rendering")
-        self._transform = select_transforms(getattr(env, "name", env_id) or env_id)
+            raise TypeError(
+                'Expected PointMazeEnv with .point_env for rendering'
+            )
+        self._transform = select_transforms(
+            getattr(env, 'name', env_id) or env_id
+        )
 
     def render_state(self, obs: Any) -> np.ndarray:
         obs = np.asarray(obs, dtype=np.float64).ravel()
@@ -61,25 +65,25 @@ class GymnasiumPointMazeDrawer:
         ax.autoscale(False)
         stats = RENDER_STATS.get(
             self._stats_env_id(),
-            {"lookat": [3.5, 3.5, 0], "arrow_mult": 25.0},
+            {'lookat': [3.5, 3.5, 0], 'arrow_mult': 25.0},
         )
         pm = PixelMapper(env_name=self.env.name)
         ax.arrow(
             *pm.obs_coord_to_pixel_coord(obs_t[:2]),
             *obs_t[2:]
             .mul(torch.tensor([1, -1], dtype=torch.float32))
-            .mul(float(stats.get("arrow_mult", 25.0))),
+            .mul(float(stats.get('arrow_mult', 25.0))),
             width=6,
-            color="red",
+            color='red',
             alpha=0.6,
         )
         return ax
 
     def _stats_env_id(self) -> str:
-        eid = getattr(self.env, "name", self.env_id)
-        if "diverse" in eid:
-            i = eid.find("diverse")
-            eid = eid[: i + len("diverse")]
+        eid = getattr(self.env, 'name', self.env_id)
+        if 'diverse' in eid:
+            i = eid.find('diverse')
+            eid = eid[: i + len('diverse')]
         return eid
 
 

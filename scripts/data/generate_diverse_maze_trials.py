@@ -29,22 +29,30 @@ from pathlib import Path
 
 import torch
 
-from stable_worldmodel.envs.diverse_maze.evaluation.trial_generator import TrialGenerator
+from stable_worldmodel.envs.diverse_maze.evaluation.trial_generator import (
+    TrialGenerator,
+)
 
 
 def main() -> None:
     p = argparse.ArgumentParser(
-        description="Generate diverse-maze evaluation trials (starts/targets/map_layouts)"
+        description='Generate diverse-maze evaluation trials (starts/targets/map_layouts)'
     )
-    p.add_argument("--env_name", default="maze2d_large_diverse")
-    p.add_argument("--dataset_path", required=True, help="Collected diverse-maze dataset")
-    p.add_argument("--maps_path", required=True, help="train_maps.pt torch dict")
-    p.add_argument("--output_path", required=True, help="Where to write trials.pt")
-    p.add_argument("--n_trials", type=int, default=80)
-    p.add_argument("--min_block_radius", type=int, default=5)
-    p.add_argument("--max_block_radius", type=int, default=8)
-    p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--unique_shortest_path", action="store_true")
+    p.add_argument('--env_name', default='maze2d_large_diverse')
+    p.add_argument(
+        '--dataset_path', required=True, help='Collected diverse-maze dataset'
+    )
+    p.add_argument(
+        '--maps_path', required=True, help='train_maps.pt torch dict'
+    )
+    p.add_argument(
+        '--output_path', required=True, help='Where to write trials.pt'
+    )
+    p.add_argument('--n_trials', type=int, default=80)
+    p.add_argument('--min_block_radius', type=int, default=5)
+    p.add_argument('--max_block_radius', type=int, default=8)
+    p.add_argument('--seed', type=int, default=42)
+    p.add_argument('--unique_shortest_path', action='store_true')
     args = p.parse_args()
 
     gen = TrialGenerator(
@@ -63,8 +71,8 @@ def main() -> None:
     out = Path(args.output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     torch.save(trials, out)
-    print(f"Saved {len(trials['starts'])} trials → {out}")
+    print(f'Saved {len(trials["starts"])} trials → {out}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

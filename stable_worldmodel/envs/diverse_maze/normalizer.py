@@ -18,8 +18,8 @@ from stable_worldmodel.envs.diverse_maze.utils import PixelMapper
 
 
 def _stats_key(env_name: str) -> str:
-    if "diverse" in env_name:
-        end = env_name.find("diverse") + len("diverse")
+    if 'diverse' in env_name:
+        end = env_name.find('diverse') + len('diverse')
         return env_name[:end]
     return env_name
 
@@ -27,15 +27,15 @@ def _stats_key(env_name: str) -> str:
 # Hardcoded per-channel pixel obs stats and per-field kinematics stats for known envs.
 # state_mean/std: 3 values, one per RGB channel (float, not uint8).
 NORM_STATS: dict[str, dict] = {
-    "maze2d_large_diverse": {
-        "state_mean": torch.tensor([146.5709, 120.0509, 93.3956]),
-        "state_std": torch.tensor([84.9847, 45.3689, 10.3962]),
-        "action_mean": torch.tensor([0.0004, -0.0022]),
-        "action_std": torch.tensor([0.4095, 0.4082]),
-        "location_mean": torch.tensor([4.3646, 4.2948]),
-        "location_std": torch.tensor([2.3662, 2.3378]),
-        "proprio_vel_mean": torch.tensor([-0.0291, -0.0461]),
-        "proprio_vel_std": torch.tensor([1.4084, 1.4102]),
+    'maze2d_large_diverse': {
+        'state_mean': torch.tensor([146.5709, 120.0509, 93.3956]),
+        'state_std': torch.tensor([84.9847, 45.3689, 10.3962]),
+        'action_mean': torch.tensor([0.0004, -0.0022]),
+        'action_std': torch.tensor([0.4095, 0.4082]),
+        'location_mean': torch.tensor([4.3646, 4.2948]),
+        'location_std': torch.tensor([2.3662, 2.3378]),
+        'proprio_vel_mean': torch.tensor([-0.0291, -0.0461]),
+        'proprio_vel_std': torch.tensor([1.4084, 1.4102]),
     }
 }
 
@@ -76,26 +76,30 @@ class Normalizer:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_stats(cls, env_name: str) -> "Normalizer":
+    def from_stats(cls, env_name: str) -> 'Normalizer':
         """Build from hardcoded per-env statistics (no dataset required)."""
         key = _stats_key(env_name)
         if key not in NORM_STATS:
-            raise KeyError(f"No hardcoded stats for '{key}'. Use build_normalizer() instead.")
+            raise KeyError(
+                f"No hardcoded stats for '{key}'. Use build_normalizer() instead."
+            )
         s = NORM_STATS[key]
         return cls(
-            state_mean=s["state_mean"].clone(),
-            state_std=s["state_std"].clone(),
-            action_mean=s["action_mean"].clone(),
-            action_std=s["action_std"].clone(),
-            location_mean=s["location_mean"].clone(),
-            location_std=s["location_std"].clone(),
-            proprio_vel_mean=s["proprio_vel_mean"].clone(),
-            proprio_vel_std=s["proprio_vel_std"].clone(),
+            state_mean=s['state_mean'].clone(),
+            state_std=s['state_std'].clone(),
+            action_mean=s['action_mean'].clone(),
+            action_std=s['action_std'].clone(),
+            location_mean=s['location_mean'].clone(),
+            location_std=s['location_std'].clone(),
+            proprio_vel_mean=s['proprio_vel_mean'].clone(),
+            proprio_vel_std=s['proprio_vel_std'].clone(),
             pixel_mapper=PixelMapper(env_name),
         )
 
     @classmethod
-    def build_normalizer(cls, dataset_path: str | Path, env_name: str = "") -> "Normalizer":
+    def build_normalizer(
+        cls, dataset_path: str | Path, env_name: str = ''
+    ) -> 'Normalizer':
         """Compute statistics from a collected dataset.
 
         Reads ``state`` (x, y, vx, vy) and ``action`` columns via
@@ -106,8 +110,8 @@ class Normalizer:
         from stable_worldmodel.data import load_dataset
 
         ds = load_dataset(str(dataset_path))
-        raw_states = ds.get_col_data("state").astype(np.float32)   # (N, 4)
-        raw_actions = ds.get_col_data("action").astype(np.float32)  # (N, 2)
+        raw_states = ds.get_col_data('state').astype(np.float32)  # (N, 4)
+        raw_actions = ds.get_col_data('action').astype(np.float32)  # (N, 2)
 
         states_t = torch.from_numpy(raw_states)
         actions_t = torch.from_numpy(raw_actions)
@@ -130,7 +134,7 @@ class Normalizer:
         )
 
     @classmethod
-    def build_id_normalizer(cls) -> "Normalizer":
+    def build_id_normalizer(cls) -> 'Normalizer':
         """Identity (no-op) normalizer."""
         return cls(
             state_mean=torch.zeros(3),
@@ -165,33 +169,51 @@ class Normalizer:
         return state * std + mean
 
     def normalize_action(self, action: torch.Tensor) -> torch.Tensor:
-        return (action - self.action_mean.to(action.device)) / (self.action_std.to(action.device) + 1e-6)
+        return (action - self.action_mean.to(action.device)) / (
+            self.action_std.to(action.device) + 1e-6
+        )
 
     def unnormalize_action(self, action: torch.Tensor) -> torch.Tensor:
-        return action * self.action_std.to(action.device) + self.action_mean.to(action.device)
+        return action * self.action_std.to(
+            action.device
+        ) + self.action_mean.to(action.device)
 
     def normalize_location(self, location: torch.Tensor) -> torch.Tensor:
-        return (location - self.location_mean.to(location.device)) / (self.location_std.to(location.device) + 1e-6)
+        return (location - self.location_mean.to(location.device)) / (
+            self.location_std.to(location.device) + 1e-6
+        )
 
     def unnormalize_location(self, location: torch.Tensor) -> torch.Tensor:
-        return location * self.location_std.to(location.device) + self.location_mean.to(location.device)
+        return location * self.location_std.to(
+            location.device
+        ) + self.location_mean.to(location.device)
 
     def normalize_proprio_vel(self, proprio_vel: torch.Tensor) -> torch.Tensor:
-        return (proprio_vel - self.proprio_vel_mean.to(proprio_vel.device)) / (self.proprio_vel_std.to(proprio_vel.device) + 1e-6)
+        return (proprio_vel - self.proprio_vel_mean.to(proprio_vel.device)) / (
+            self.proprio_vel_std.to(proprio_vel.device) + 1e-6
+        )
 
-    def unnormalize_proprio_vel(self, proprio_vel: torch.Tensor) -> torch.Tensor:
-        return proprio_vel * self.proprio_vel_std.to(proprio_vel.device) + self.proprio_vel_mean.to(proprio_vel.device)
+    def unnormalize_proprio_vel(
+        self, proprio_vel: torch.Tensor
+    ) -> torch.Tensor:
+        return proprio_vel * self.proprio_vel_std.to(
+            proprio_vel.device
+        ) + self.proprio_vel_mean.to(proprio_vel.device)
 
     # ------------------------------------------------------------------
     # Device / persistence
     # ------------------------------------------------------------------
 
-    def to(self, device) -> "Normalizer":
+    def to(self, device) -> 'Normalizer':
         for attr in (
-            "state_mean", "state_std",
-            "action_mean", "action_std",
-            "location_mean", "location_std",
-            "proprio_vel_mean", "proprio_vel_std",
+            'state_mean',
+            'state_std',
+            'action_mean',
+            'action_std',
+            'location_mean',
+            'location_std',
+            'proprio_vel_mean',
+            'proprio_vel_std',
         ):
             setattr(self, attr, getattr(self, attr).to(device))
         return self
@@ -199,28 +221,28 @@ class Normalizer:
     def save(self, path: str | Path) -> None:
         torch.save(
             {
-                "state_mean": self.state_mean,
-                "state_std": self.state_std,
-                "action_mean": self.action_mean,
-                "action_std": self.action_std,
-                "location_mean": self.location_mean,
-                "location_std": self.location_std,
-                "proprio_vel_mean": self.proprio_vel_mean,
-                "proprio_vel_std": self.proprio_vel_std,
+                'state_mean': self.state_mean,
+                'state_std': self.state_std,
+                'action_mean': self.action_mean,
+                'action_std': self.action_std,
+                'location_mean': self.location_mean,
+                'location_std': self.location_std,
+                'proprio_vel_mean': self.proprio_vel_mean,
+                'proprio_vel_std': self.proprio_vel_std,
             },
             path,
         )
 
     @classmethod
-    def load(cls, path: str | Path) -> "Normalizer":
-        s = torch.load(path, map_location="cpu", weights_only=True)
+    def load(cls, path: str | Path) -> 'Normalizer':
+        s = torch.load(path, map_location='cpu', weights_only=True)
         return cls(
-            state_mean=s["state_mean"],
-            state_std=s["state_std"],
-            action_mean=s["action_mean"],
-            action_std=s["action_std"],
-            location_mean=s["location_mean"],
-            location_std=s["location_std"],
-            proprio_vel_mean=s["proprio_vel_mean"],
-            proprio_vel_std=s["proprio_vel_std"],
+            state_mean=s['state_mean'],
+            state_std=s['state_std'],
+            action_mean=s['action_mean'],
+            action_std=s['action_std'],
+            location_mean=s['location_mean'],
+            location_std=s['location_std'],
+            proprio_vel_mean=s['proprio_vel_mean'],
+            proprio_vel_std=s['proprio_vel_std'],
         )

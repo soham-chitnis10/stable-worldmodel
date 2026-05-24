@@ -80,16 +80,16 @@ small_diverse_transforms = transforms.Compose(
 
 
 def select_transforms(env_name):
-    if "umaze" in env_name:
+    if 'umaze' in env_name:
         return umaze_transforms
-    elif "small" in env_name:
+    elif 'small' in env_name:
         return small_diverse_transforms
-    elif "large" in env_name:
+    elif 'large' in env_name:
         return large_diverse_transforms
-    elif "medium" in env_name:
-        if "diverse" in env_name:
+    elif 'medium' in env_name:
+        if 'diverse' in env_name:
             return medium_diverse_transforms
         else:
             return medium_transforms
-    elif "large" in env_name:
+    elif 'large' in env_name:
         return large_transforms

@@ -4,10 +4,10 @@ from .map_generator import MapGenerator
 from .normalizer import Normalizer
 
 __all__ = [
-    "DiverseMazeEnv",
-    "make_diverse_maze_env",
-    "UniformPolicy",
-    "OUTrajectoryPolicy",
-    "MapGenerator",
-    "Normalizer",
+    'DiverseMazeEnv',
+    'make_diverse_maze_env',
+    'UniformPolicy',
+    'OUTrajectoryPolicy',
+    'MapGenerator',
+    'Normalizer',
 ]

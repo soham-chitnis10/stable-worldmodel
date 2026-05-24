@@ -1,6 +1,6 @@
 import torch
 from stable_worldmodel.envs.diverse_maze.maze_stats import RENDER_STATS
-from typing import *
+from typing import Union, Tuple
 import numpy as np
 
 import torchvision.transforms as transforms
@@ -11,20 +11,20 @@ import random
 class PixelMapper:
     def __init__(self, env_name):
         self.env_name = env_name
-        if "diverse" in env_name:
-            key_word = "diverse"
+        if 'diverse' in env_name:
+            key_word = 'diverse'
             index = env_name.find(key_word)
             if index != -1:
                 env_name = env_name[: index + len(key_word)]
 
         self.stats = RENDER_STATS[env_name]
         self.image_topleft_in_obs_coord = torch.as_tensor(
-            self.stats["image_topleft_in_obs_coord"]
+            self.stats['image_topleft_in_obs_coord']
         )
-        self.scale_coord_obs_to_pixel = self.stats["scale_coord_obs_to_pixel"]
-        self.transformed = self.stats["transformed"]
-        self.crop_left_top = self.stats["crop_left_top"]
-        self.scale_factor = self.stats["scale_factor"]
+        self.scale_coord_obs_to_pixel = self.stats['scale_coord_obs_to_pixel']
+        self.transformed = self.stats['transformed']
+        self.crop_left_top = self.stats['crop_left_top']
+        self.scale_factor = self.stats['scale_factor']
 
     def obs_coord_to_pixel_coord_v2(
         self,
@@ -44,12 +44,14 @@ class PixelMapper:
         else:
             coord = coord.view(-1, 2)
 
-        obs_min_total = self.stats["obs_min_total"]
-        obs_range_total = self.stats["obs_range_total"]
+        obs_min_total = self.stats['obs_min_total']
+        obs_range_total = self.stats['obs_range_total']
         if image_width is None:
-            image_width = self.stats["image_width"]
+            image_width = self.stats['image_width']
 
-        jj, ii = ((coord - obs_min_total) / obs_range_total * image_width).unbind(-1)
+        jj, ii = (
+            (coord - obs_min_total) / obs_range_total * image_width
+        ).unbind(-1)
 
         pixel_coord = torch.stack([image_width - ii, jj], dim=-1)
 
@@ -108,9 +110,9 @@ class PixelMapper:
         return pixel_coord
 
     def pixel_coord_to_obs_coord_v2(self, coord) -> Tuple[float, float]:
-        image_width = self.stats["image_width"]
-        obs_min_total = self.stats["obs_min_total"]
-        obs_range_total = self.stats["obs_range_total"]
+        image_width = self.stats['image_width']
+        obs_min_total = self.stats['obs_min_total']
+        obs_range_total = self.stats['obs_range_total']
 
         ii = image_width - coord[0]
         jj = coord[1]
@@ -121,7 +123,7 @@ class PixelMapper:
         return (jj.item(), ii.item())
 
     def pixel_coord_to_obs_coord(self, coord) -> Tuple[float, float]:
-        if "small" in self.env_name:
+        if 'small' in self.env_name:
             return self.pixel_coord_to_obs_coord_v2(coord)
 
         if self.transformed:
@@ -129,7 +131,8 @@ class PixelMapper:
             coord[1] = coord[1] * self.scale_factor + self.crop_left_top[1]
 
         coord = (
-            torch.as_tensor(coord, dtype=torch.float32) / self.scale_coord_obs_to_pixel
+            torch.as_tensor(coord, dtype=torch.float32)
+            / self.scale_coord_obs_to_pixel
         )
         coord[1].neg_()
         x, y = coord + self.image_topleft_in_obs_coord
@@ -158,7 +161,7 @@ def plot_obs_with_blur(obs, coord, save_name, reverse_input_coord=False):
     to_pil = transforms.ToPILImage()
     image_pil = to_pil(copy_obs)
 
-    image_pil.save(f"imgs/obs_with_red_dot_{save_name}.png")
+    image_pil.save(f'imgs/obs_with_red_dot_{save_name}.png')
 
 
 def ij_to_obs(ij, obs_min_total, obs_range_total, n):
@@ -178,7 +181,9 @@ def ij_to_obs(ij, obs_min_total, obs_range_total, n):
     grid_size = obs_range_total / n
 
     # Calculate the lower-left corner of the grid block
-    lower_left = torch.tensor(ij, dtype=torch.float32) * grid_size + obs_min_total
+    lower_left = (
+        torch.tensor(ij, dtype=torch.float32) * grid_size + obs_min_total
+    )
 
     # Calculate the center of the grid block
     obs = lower_left + grid_size / 2
@@ -269,7 +274,7 @@ def sample_nearby_grid_location_ij(
     max_block_radius,
     unique_shortest_path=False,
 ):
-    map_layout = map_key.split("\\")
+    map_layout = map_key.split('\\')
 
     # find block indices within max_block_radius
     neighbor_indices = find_reachable_positions_with_turns(
@@ -284,14 +289,20 @@ def sample_nearby_grid_location_ij(
     if unique_shortest_path:
         sampled = sample_unique_a_tuple(neighbor_indices)
         if sampled is None:
-            sampled_block_index, block_dist, turns = random.choice(neighbor_indices)
+            sampled_block_index, block_dist, turns = random.choice(
+                neighbor_indices
+            )
             unique_path = False
         else:
             sampled_block_index, block_dist, turns = sampled
             unique_path = True
     else:
-        sampled_block_index, block_dist, turns = random.choice(neighbor_indices)
-        unique_path = sum(1 for _, a, _ in neighbor_indices if a == block_dist) == 1
+        sampled_block_index, block_dist, turns = random.choice(
+            neighbor_indices
+        )
+        unique_path = (
+            sum(1 for _, a, _ in neighbor_indices if a == block_dist) == 1
+        )
 
     return sampled_block_index, block_dist, turns, unique_path
 
@@ -305,7 +316,7 @@ def sample_nearby_grid_location_v2(
     obs_min_total,
     unique_shortest_path,
 ):
-    map_layout = map_key.split("\\")
+    map_layout = map_key.split('\\')
 
     ij = obs_to_ij(anchor, obs_min_total, obs_range_total, n=len(map_layout))
 
@@ -344,21 +355,23 @@ def sample_nearby_grid_location(
         num_blocks: the number of blocks in image's width. including open surround
     """
     # figure out which block anchor corresponds to
-    map_layout = map_key.split("\\")
+    map_layout = map_key.split('\\')
 
     if num_blocks > len(map_layout):
         # it means there are surrounding space blocks. append them to layout
         assert num_blocks - len(map_layout) == 2
-        border_row = "_" * num_blocks
+        border_row = '_' * num_blocks
         map_layout = (
-            [border_row] + ["_" + row + "_" for row in map_layout] + [border_row]
+            [border_row]
+            + ['_' + row + '_' for row in map_layout]
+            + [border_row]
         )
 
     def rotate_left_90(grid):
         # First, convert each row (string) into a list of characters for easier manipulation
         matrix = [list(row) for row in grid]
         rotated = list(zip(*matrix))
-        rotated_grid = ["".join(row) for row in rotated][::-1]
+        rotated_grid = [''.join(row) for row in rotated][::-1]
         return rotated_grid
 
     map_layout = rotate_left_90(map_layout)
@@ -413,13 +426,20 @@ def get_block_index(x, y, img_size, num_blocks, reverse_output_coord=True):
         return i, j
 
 
-def find_reachable_positions_with_turns(map_, x, y, min_block_radius, max_block_radius):
+def find_reachable_positions_with_turns(
+    map_, x, y, min_block_radius, max_block_radius
+):
     # Get the size of the map (n x n)
     n = len(map_)
 
     # Directions for moving up, down, left, right
     directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
-    direction_names = ["R", "L", "D", "U"]  # Names for easier tracking of turns
+    direction_names = [
+        'R',
+        'L',
+        'D',
+        'U',
+    ]  # Names for easier tracking of turns
 
     # A dictionary to store the reachable positions, distances, and turn counts
     reachable = {}
@@ -444,14 +464,19 @@ def find_reachable_positions_with_turns(map_, x, y, min_block_radius, max_block_
             # Check if the new position is within bounds
             if 0 <= new_x < n and 0 <= new_y < n:
                 # Check if the new position is 'O' and not yet visited
-                if map_[new_x][new_y] == "O" and (new_x, new_y) not in reachable:
+                if (
+                    map_[new_x][new_y] == 'O'
+                    and (new_x, new_y) not in reachable
+                ):
                     # Increment the turn count if there's a change in direction
                     new_turns = turns
                     if last_direction and new_direction != last_direction:
                         new_turns += 1
 
                     reachable[(new_x, new_y)] = (dist + 1, new_turns)
-                    queue.append((new_x, new_y, dist + 1, new_turns, new_direction))
+                    queue.append(
+                        (new_x, new_y, dist + 1, new_turns, new_direction)
+                    )
 
     # Convert the dictionary to a list of tuples (position, distance, turns)
     output = [
@@ -496,26 +521,28 @@ def load_uniform(env_name, data_path):
     """
 
     shape = None
-    if "ant" in env_name.lower():
+    if 'ant' in env_name.lower():
         shape = 29
     else:
         shape = 4
 
     uniform_obs_by_map = {}
 
-    uniform_ds = torch.load(f"{data_path}/data.p")
+    uniform_ds = torch.load(f'{data_path}/data.p')
 
     for i in range(len(uniform_ds)):
         episode = uniform_ds[i]
 
-        if episode["map_idx"] in uniform_obs_by_map:
-            uniform_obs_by_map[episode["map_idx"]].append(episode["observations"])
+        if episode['map_idx'] in uniform_obs_by_map:
+            uniform_obs_by_map[episode['map_idx']].append(
+                episode['observations']
+            )
         else:
-            uniform_obs_by_map[episode["map_idx"]] = [episode["observations"]]
+            uniform_obs_by_map[episode['map_idx']] = [episode['observations']]
 
     for map_idx in uniform_obs_by_map:
-        uniform_obs_by_map[map_idx] = np.stack(uniform_obs_by_map[map_idx]).reshape(
-            -1, shape
-        )
+        uniform_obs_by_map[map_idx] = np.stack(
+            uniform_obs_by_map[map_idx]
+        ).reshape(-1, shape)
 
     return uniform_obs_by_map
