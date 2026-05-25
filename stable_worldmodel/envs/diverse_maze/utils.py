@@ -1,6 +1,5 @@
 import torch
 from stable_worldmodel.envs.diverse_maze.maze_stats import RENDER_STATS
-from typing import Union, Tuple
 import numpy as np
 
 import torchvision.transforms as transforms
