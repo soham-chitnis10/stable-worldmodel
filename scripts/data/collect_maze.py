@@ -121,37 +121,41 @@ def _resolve_maps(cfg) -> tuple[dict | None, Path | None]:
     ):
         maps = dict(list(maps.items())[:train_maps_n])
 
-    # generate new maps if none loaded
-    if maps is None:
-        if train_maps_n is None or train_maps_n <= 0:
-            logging.warning(
-                'No maps loaded and train_maps_n not set; skipping map generation'
-            )
-            return None, None
-
-        num_blocks = map_cfg.get('num_blocks_width_in_img', 12)
-        generator = MapGenerator(
-            width=num_blocks - 2,
-            height=num_blocks - 2,
-            num_maps=train_maps_n,
-            sparsity_low=map_cfg.get('sparsity_low', 53),
-            sparsity_high=map_cfg.get('sparsity_high', 88),
-            max_path_len=map_cfg.get('max_path_len', 13),
-            exclude_maps=exclude_maps,
-            wall_coords=OmegaConf.to_object(map_cfg.get('wall_coords', [])),
-            space_coords=OmegaConf.to_object(map_cfg.get('space_coords', [])),
-        )
-        maps = generator.generate_diverse_maps()
-        logging.success(f'Generated {len(maps)} new maps')
-
-    # save maps to disk
+    # canonical cache path for this dataset's maps
     output_dir = Path(
         get_cache_dir(cfg.get('cache_dir'), sub_folder='datasets')
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     maps_file = output_dir / f'{cfg.dataset_name}_train_maps.pt'
-    torch.save(maps, maps_file)
-    logging.info(f'Maps saved to {maps_file}')
+
+    # generate new maps if none loaded
+    if maps is None:
+        if maps_file.exists():
+            maps = torch.load(maps_file, weights_only=False)
+            logging.info(f'Reusing existing maps from {maps_file}')
+        else:
+            if train_maps_n is None or train_maps_n <= 0:
+                logging.warning(
+                    'No maps loaded and train_maps_n not set; skipping map generation'
+                )
+                return None, None
+
+            num_blocks = map_cfg.get('num_blocks_width_in_img', 12)
+            generator = MapGenerator(
+                width=num_blocks - 2,
+                height=num_blocks - 2,
+                num_maps=train_maps_n,
+                sparsity_low=map_cfg.get('sparsity_low', 53),
+                sparsity_high=map_cfg.get('sparsity_high', 88),
+                max_path_len=map_cfg.get('max_path_len', 13),
+                exclude_maps=exclude_maps,
+                wall_coords=OmegaConf.to_object(map_cfg.get('wall_coords', [])),
+                space_coords=OmegaConf.to_object(map_cfg.get('space_coords', [])),
+            )
+            maps = generator.generate_diverse_maps()
+            logging.success(f'Generated {len(maps)} new maps')
+            torch.save(maps, maps_file)
+            logging.info(f'Maps saved to {maps_file}')
 
     return maps, maps_file
 
@@ -233,25 +237,29 @@ def _collect_with_variation(cfg, maps_file, maps):
     )
 
     rng = np.random.default_rng(cfg.seed)
-    world.record_dataset(
-        cfg.dataset_name,
+    output_path = (
+        Path(get_cache_dir(cfg.get('cache_dir'), sub_folder='datasets'))
+        / f'{cfg.dataset_name}.h5'
+    )
+    world.collect(
+        output_path,
         episodes=total_episodes,
         seed=rng.integers(0, 1_000_000).item(),
-        cache_dir=cfg.get('cache_dir'),
         options=options,
+        format='hdf5',
     )
 
     logging.success(
         f'Collected {total_episodes} episodes across {n_maps} maps '
-        f'→ {cfg.dataset_name}'
+        f'→ {output_path}'
     )
 
 
 def _collect_per_map(cfg, maps_file, maps):
     """Collect exactly n_episodes per map, iterating maps sequentially.
 
-    Each batch of episodes for a map is appended to the same HDF5 file
-    via the resume capability of ``World.record_dataset``.
+    Each map's episodes are appended to the same HDF5 file via the default
+    append mode of ``HDF5Writer``.
     """
     world_cfg = OmegaConf.to_object(cfg.world)
     world_cfg.pop('maps_path', None)
@@ -265,33 +273,27 @@ def _collect_per_map(cfg, maps_file, maps):
     )
     world.set_policy(_build_policy(cfg))
 
+    output_path = (
+        Path(get_cache_dir(cfg.get('cache_dir'), sub_folder='datasets'))
+        / f'{cfg.dataset_name}.h5'
+    )
     rng = np.random.default_rng(cfg.seed)
-    cumulative_episodes = 0
 
     for map_idx, map_key in maps.items():
-        cumulative_episodes += cfg.n_episodes
-        logging.info(
-            f'Collecting {cfg.n_episodes} episodes for map {map_idx} '
-            f'(cumulative target: {cumulative_episodes})'
-        )
+        logging.info(f'Collecting {cfg.n_episodes} episodes for map {map_idx}')
 
-        options = {
-            'map_key': map_key,
-            'map_idx': int(map_idx),
-        }
-
-        world.record_dataset(
-            cfg.dataset_name,
-            episodes=cumulative_episodes,
+        world.collect(
+            output_path,
+            episodes=cfg.n_episodes,
             seed=rng.integers(0, 1_000_000).item(),
-            cache_dir=cfg.get('cache_dir'),
-            options=options,
+            options={'map_key': map_key, 'map_idx': int(map_idx)},
+            format='hdf5',
         )
 
     total = cfg.n_episodes * len(maps)
     logging.success(
         f'Collected {total} episodes ({cfg.n_episodes} per map × {len(maps)} maps) '
-        f'→ {cfg.dataset_name}'
+        f'→ {output_path}'
     )
 
 
