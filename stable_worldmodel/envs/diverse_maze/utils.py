@@ -28,7 +28,7 @@ class PixelMapper:
 
     def obs_coord_to_pixel_coord_v2(
         self,
-        coord: Union[torch.Tensor, Tuple[float, float]],
+        coord: torch.Tensor | tuple[float, float],
         flip_coord=True,
         image_width=None,
     ) -> torch.Tensor:
@@ -66,7 +66,7 @@ class PixelMapper:
         return pixel_coord
 
     def obs_coord_to_pixel_coord(
-        self, coord: Union[torch.Tensor, Tuple[float, float]], flip_coord=True
+        self, coord: torch.Tensor | tuple[float, float], flip_coord=True
     ) -> torch.Tensor:
         """
         flip coord is needed when you plot in matplotlib...
@@ -109,7 +109,7 @@ class PixelMapper:
 
         return pixel_coord
 
-    def pixel_coord_to_obs_coord_v2(self, coord) -> Tuple[float, float]:
+    def pixel_coord_to_obs_coord_v2(self, coord) -> tuple[float, float]:
         image_width = self.stats['image_width']
         obs_min_total = self.stats['obs_min_total']
         obs_range_total = self.stats['obs_range_total']
@@ -122,7 +122,7 @@ class PixelMapper:
 
         return (jj.item(), ii.item())
 
-    def pixel_coord_to_obs_coord(self, coord) -> Tuple[float, float]:
+    def pixel_coord_to_obs_coord(self, coord) -> tuple[float, float]:
         if 'small' in self.env_name:
             return self.pixel_coord_to_obs_coord_v2(coord)
 

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import random
 from collections import deque
-from typing import Optional
 
 import numpy as np
 from tqdm import tqdm
@@ -24,9 +23,9 @@ class MapGenerator:
         sparsity_low: float = 53,
         sparsity_high: float = 88,
         max_path_len: int = 13,
-        exclude_maps: Optional[dict] = None,
-        wall_coords: Optional[list] = None,
-        space_coords: Optional[list] = None,
+        exclude_maps: dict | None = None,
+        wall_coords: dict | None = None,
+        space_coords: dict | None = None,
     ):
         """
         Args:

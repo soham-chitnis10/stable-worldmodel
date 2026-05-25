@@ -76,7 +76,7 @@ class Normalizer:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_stats(cls, env_name: str) -> 'Normalizer':
+    def from_stats(cls, env_name: str) -> Normalizer:
         """Build from hardcoded per-env statistics (no dataset required)."""
         key = _stats_key(env_name)
         if key not in NORM_STATS:
@@ -99,7 +99,7 @@ class Normalizer:
     @classmethod
     def build_normalizer(
         cls, dataset_path: str | Path, env_name: str = ''
-    ) -> 'Normalizer':
+    ) -> Normalizer:
         """Compute statistics from a collected dataset.
 
         Reads ``state`` (x, y, vx, vy) and ``action`` columns via
@@ -134,7 +134,7 @@ class Normalizer:
         )
 
     @classmethod
-    def build_id_normalizer(cls) -> 'Normalizer':
+    def build_id_normalizer(cls) -> Normalizer:
         """Identity (no-op) normalizer."""
         return cls(
             state_mean=torch.zeros(3),
@@ -204,7 +204,7 @@ class Normalizer:
     # Device / persistence
     # ------------------------------------------------------------------
 
-    def to(self, device) -> 'Normalizer':
+    def to(self, device) -> Normalizer:
         for attr in (
             'state_mean',
             'state_std',
@@ -234,7 +234,7 @@ class Normalizer:
         )
 
     @classmethod
-    def load(cls, path: str | Path) -> 'Normalizer':
+    def load(cls, path: str | Path) -> Normalizer:
         s = torch.load(path, map_location='cpu', weights_only=True)
         return cls(
             state_mean=s['state_mean'],
