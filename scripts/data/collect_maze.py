@@ -149,8 +149,12 @@ def _resolve_maps(cfg) -> tuple[dict | None, Path | None]:
                 sparsity_high=map_cfg.get('sparsity_high', 88),
                 max_path_len=map_cfg.get('max_path_len', 13),
                 exclude_maps=exclude_maps,
-                wall_coords=OmegaConf.to_object(map_cfg.get('wall_coords', [])),
-                space_coords=OmegaConf.to_object(map_cfg.get('space_coords', [])),
+                wall_coords=OmegaConf.to_object(
+                    map_cfg.get('wall_coords', [])
+                ),
+                space_coords=OmegaConf.to_object(
+                    map_cfg.get('space_coords', [])
+                ),
             )
             maps = generator.generate_diverse_maps()
             logging.success(f'Generated {len(maps)} new maps')
