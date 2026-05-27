@@ -1,0 +1,26 @@
+# ---------------------------------------------------------------------------
+# Diverse maze trial-generation config
+#
+# See scripts/data/generate_diverse_maze_trials.py for usage.
+# ---------------------------------------------------------------------------
+
+env_name: maze2d_large_diverse
+cache_dir: null                 # null → resolved from STABLEWM_HOME env var
+
+# Dataset to load states from (resolved to {cache_dir}/datasets/{dataset_name}.h5)
+dataset_name: maze2d_large_diverse_25maps
+
+# Maps catalog file.
+#   - Absolute path → used as-is.
+#   - Bare filename  → looked up in {cache_dir}/datasets/.
+maps_path: maze2d_large_diverse_25maps_train_maps.pt
+
+# Output file saved under {cache_dir}/datasets/.
+# Supports OmegaConf interpolation (e.g. ${min_block_radius}).
+output_name: trials_${min_block_radius}_${max_block_radius}.pt
+
+n_trials: 80
+min_block_radius: 5
+max_block_radius: 8
+seed: 42
+unique_shortest_path: false
