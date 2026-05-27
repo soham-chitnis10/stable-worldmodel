@@ -1,0 +1,77 @@
+# ---------------------------------------------------------------------------
+# Diverse maze dataset collection config
+#
+# Mirrors every parameter from the PLDM/HJEPA data-generation pipeline.
+# See scripts/data/collect_maze.py for usage.
+# ---------------------------------------------------------------------------
+
+env_name: swm/maze2d_large_diverse
+
+cache_dir: null
+dataset_name: maze2d_large_diverse_25maps
+
+# --- World / env construction ---
+world:
+  num_envs: 1
+  max_episode_steps: 100
+  image_shape: [98, 98]
+  maps_path: null         # set by collect_maze.py automatically
+
+# --- Policy: 'expert', 'random', 'uniform', or 'ou_trajectory' ---
+policy: uniform
+action_noise: 0.0         # Gaussian noise std added to expert actions
+
+# --- Uniform policy params (used when policy=uniform) ---
+max_norm: 1.0             # upper bound on action vector norm
+resample_every: 1         # hold each action for this many steps
+
+# --- OU trajectory params (used when policy=ou_trajectory) ---
+ou_params:
+  ou_theta: 0.15
+  ou_dt: 1.0
+  ou_sigma: 0.2
+  turn_frequency: 20
+  turn_sigma: 0.2
+  turn_noise_level: 0.05
+
+# --- Episode collection ---
+n_episodes: 2000          # episodes PER MAP (total = n_episodes × train_maps_n)
+seed: 3072
+
+# collect_mode: 'per_map' (exactly n_episodes per map, sequential)
+#               'variation' (random variation sampling, approximate coverage)
+collect_mode: per_map
+gen_map_only: false        # if true, generate maps and exit
+
+# --- Action repeat (physics frame-skip) ---
+action_repeat: 4           # repeat each action this many times in physics
+action_repeat_mode: id     # 'id' (same), 'linear' (decaying), 'null' (zeros)
+
+# --- Initial velocity prior (applied at each episode reset) ---
+qvel_prior: true
+qvel_prior_type: uniform   # 'uniform' (sample_vector max_norm=5) or 'normal' (truncnorm)
+
+# --- Map generation / loading ---
+map:
+  train_maps_n: 25
+  num_blocks_width_in_img: 12    # grid size = num_blocks_width_in_img - 2 (interior)
+  sparsity_low: 50
+  sparsity_high: 80
+  max_path_len: 20
+  wall_coords: []                # list of [row, col] forced to be walls
+  space_coords: []               # list of [row, col] forced to be open space
+
+  # Pre-existing maps file (torch dict). Set to null to generate fresh maps.
+  map_path: null
+
+  # Maps to exclude when generating (e.g. training maps for probe datasets).
+  exclude_map_path: null
+
+  # Filter loaded maps to this index range (inclusive). Both must be set.
+  map_start_idx: null
+  map_end_idx: null
+
+# --- Variation options passed to env reset (used in collect_mode=variation) ---
+options:
+  variation:
+    - maze.map_idx
