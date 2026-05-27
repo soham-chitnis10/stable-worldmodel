@@ -19,7 +19,7 @@ maps_path: maze2d_large_diverse_25maps_train_maps.pt
 # Supports OmegaConf interpolation (e.g. ${min_block_radius}).
 output_name: trials_${min_block_radius}_${max_block_radius}.pt
 
-n_trials: 80
+n_trials: 40
 min_block_radius: 5
 max_block_radius: 8
 seed: 42

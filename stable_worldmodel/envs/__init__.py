@@ -31,35 +31,11 @@ register(
     entry_point='stable_worldmodel.envs.simple_point_maze:SimplePointMazeEnv',
 )
 
-# register(
-#     id='swm/maze2d-umaze-v1',
-#     entry_point='stable_worldmodel.envs.diverse_maze.env:DiverseMazeEnv',
-#     kwargs={'env_name': 'maze2d-umaze-v1'},
-# )
-
-# register(
-#     id='swm/maze2d-medium-v1',
-#     entry_point='stable_worldmodel.envs.diverse_maze.env:DiverseMazeEnv',
-#     kwargs={'env_name': 'maze2d-medium-v1'},
-# )
-
-# register(
-#     id='swm/maze2d-large-v1',
-#     entry_point='stable_worldmodel.envs.diverse_maze.env:DiverseMazeEnv',
-#     kwargs={'env_name': 'maze2d-large-v1'},
-# )
-
 register(
     id='swm/maze2d_small_diverse',
     entry_point='stable_worldmodel.envs.diverse_maze.env:DiverseMazeEnv',
     kwargs={'env_name': 'maze2d_small_diverse'},
 )
-
-# register(
-#     id='swm/maze2d_small_diverse_single',
-#     entry_point='stable_worldmodel.envs.diverse_maze.env:DiverseMazeEnv',
-#     kwargs={'env_name': 'maze2d_small_diverse_single'},
-# )
 
 register(
     id='swm/maze2d_medium_diverse',
@@ -72,12 +48,6 @@ register(
     entry_point='stable_worldmodel.envs.diverse_maze.env:DiverseMazeEnv',
     kwargs={'env_name': 'maze2d_large_diverse'},
 )
-
-# register(
-#     id='swm/ant_medium_diverse',
-#     entry_point='stable_worldmodel.envs.diverse_maze.env:DiverseMazeEnv',
-#     kwargs={'env_name': 'ant_medium_diverse'},
-# )
 
 register(
     id='swm/TwoRoom-v1',
